@@ -1,183 +1,132 @@
 # LLM Eval Toolkit
 
-**Contract-based testing and regression detection for AI application outputs.**
+[![CI](https://github.com/adamblansett/llm-eval-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/adamblansett/llm-eval-toolkit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-green.svg)](package.json)
 
-LLM Eval Toolkit is an open-source testing framework for developers building applications powered by large language models (LLMs). It validates AI outputs against explicit requirements, detects regressions between evaluation runs, and integrates with automated development workflows.
+**Developer-focused, contract-based evaluation framework and regression detection for AI application outputs.**
 
-The goal is simple: make it easier to catch AI output failures before they reach production.
+LLM Eval Toolkit validates AI outputs against explicit contracts, detects regressions between evaluation runs, and integrates directly with CI/CD workflows. The core engine runs **100% locally and deterministically**—no API keys, no network access, no paid model subscriptions, and no external dependencies required.
 
-## Why This Project Exists
+---
 
-Traditional software tests typically evaluate deterministic behavior. LLM-powered applications introduce additional challenges: outputs may vary, structured responses may violate their schemas, and seemingly small prompt or model changes can break downstream application logic.
+## Table of Contents
 
-LLM Eval Toolkit helps developers test these behaviors systematically.
+- [Why LLM Eval Toolkit?](#why-llm-eval-toolkit)
+- [Core Features](#core-features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Evaluation Dataset Format](#evaluation-dataset-format)
+- [Output Fixtures Format](#output-fixtures-format)
+- [Built-In Evaluator Reference](#built-in-evaluator-reference)
+  - [1. exact\_match](#1-exact_match)
+  - [2. required\_content](#2-required_content)
+  - [3. prohibited\_content](#3-prohibited_content)
+  - [4. json / json\_valid](#4-json--json_valid)
+  - [5. json\_schema](#5-json_schema)
+  - [6. required\_fields](#6-required_fields)
+  - [7. field\_types](#7-field_types)
+  - [8. Custom Evaluator Interface](#8-custom-evaluator-interface)
+- [CLI Reference](#cli-reference)
+- [Exit Code Contract](#exit-code-contract)
+- [Regression Detection & Baselines](#regression-detection--baselines)
+- [Programmatic API](#programmatic-api)
+- [GitHub Actions CI Integration](#github-actions-ci-integration)
+- [Security & Privacy Guarantees](#security--privacy-guarantees)
+- [Known Limitations](#known-limitations)
+- [Development & Verification](#development--verification)
+- [Contributing](#contributing)
+- [License](#license)
+- [Author](#author)
 
-It focuses on **verifiable application contracts**, including:
+---
 
-- Required fields and data types.
-- JSON and JSON Schema compliance.
-- Exact-match requirements.
-- Required and prohibited phrases.
-- Application-specific validation rules.
-- Changes in evaluation results between runs.
+## Why LLM Eval Toolkit?
 
-The initial implementation is designed to run locally without paid APIs, external model calls, or transmitting evaluation data to third parties.
+Traditional unit tests expect predictable, deterministic behavior. When applications integrate Large Language Models (LLMs), new failure modes emerge:
+
+- Structured outputs occasionally violate JSON syntax or JSON Schemas.
+- Minor prompt tweaks or model version changes cause silent downstream regressions.
+- Required keys are omitted, or values have unexpected types (e.g. strings instead of numbers).
+- Outputs leak confidential tokens or prohibited phrases.
+- Testing against live LLM APIs in CI pipelines is slow, flaky, costly, and leaks sensitive test data over the network.
+
+**LLM Eval Toolkit solves this by decoupling application contract testing from live model execution.** You evaluate saved output fixtures against strict application contracts, verify compliance, and compare against saved baselines to catch regressions before code reaches production.
+
+---
 
 ## Core Features
 
-> Development status: Planned. Features listed below are design goals until implemented and verified by automated tests.
+- **Deterministic Evaluation Engine**: Executes offline without network calls, external API dependencies, or credentials.
+- **Versioned Evaluation Datasets**: Strict JSON dataset specifications validated with Zod, featuring actionable errors with exact file and case locations.
+- **Rich Built-in Contract Evaluators**: Exact match, required phrases, prohibited phrases, JSON syntax, JSON Schema (via Ajv), required keys, and field types.
+- **Regression Detection**: Versioned evaluation baselines track passing and failing cases over time, detecting newly failing cases and policy violations.
+- **Dual Reporters**: Colorized terminal output for local development and structured JSON output for downstream tooling.
+- **Stable Exit Codes**: Explicit process exit codes (0–4) designed for CI automation.
+- **Custom Evaluator Extensibility**: Strongly typed API for registering custom evaluators.
+- **Security-First Architecture**: Path traversal prevention, safe atomic file writes, payload sanitization to protect sensitive data, and input size boundaries.
 
-### Dataset-Driven Evaluations
-
-Define evaluation cases in JSON files.
-
-Each case can specify an input, expected output properties, validation requirements, and optional reference data.
-
-### Structured Output Validation
-
-Validate generated outputs against JSON Schema or supported TypeScript-friendly schema definitions.
-
-Detect missing fields, invalid types, malformed JSON, and other contract violations.
-
-### Deterministic Assertions
-
-Evaluate outputs using reproducible checks:
-
-- Exact-match assertions.
-- Required-content assertions.
-- Prohibited-content assertions.
-- JSON parsing.
-- Schema validation.
-- Custom validation rules.
-
-Deterministic assertions are designed to produce consistent results for the same inputs and configuration.
-
-### Regression Detection
-
-Compare evaluation runs to identify changes in behavior.
-
-Reports should distinguish between:
-
-- Newly passing cases.
-- Newly failing cases.
-- Cases that continue to pass.
-- Cases that continue to fail.
-- Changes in overall evaluation results.
-
-### CI Integration
-
-Use the toolkit in GitHub Actions and other automated pipelines.
-
-Configurable failure thresholds allow teams to prevent regressions from silently passing through their development workflow.
-
-### Machine-Readable Reports
-
-Generate structured JSON reports for CI systems and downstream tooling.
-
-Human-readable terminal output provides a quick overview of evaluation results.
-
-HTML reporting may be added in a future release.
-
-### Provider-Independent Architecture
-
-Keep the evaluation engine independent of any specific LLM provider.
-
-Provider adapters can be added separately to support live model evaluation when needed.
-
-The core testing engine should remain useful without API credentials.
-
-## Example Use Case
-
-Suppose an application uses an LLM to extract transaction details from a receipt.
-
-The application expects structured data:
-
-```json
-{
-  "merchant": "Example Store",
-  "amount": 42.50,
-  "currency": "USD",
-  "category": "groceries"
-}
-```
-
-A valid response must contain all required fields, use the correct data types, and satisfy the application's business rules.
-
-The toolkit can validate these requirements and report failures when the output is malformed or incomplete.
-
-For example:
-
-```text
-Evaluation Results
-------------------
-Total cases:       20
-Passed:            17
-Failed:             3
-Pass rate:        85.0%
-
-Failures:
-  receipt-004: Missing required field "currency"
-  receipt-009: Invalid type for field "amount"
-  receipt-015: Output failed schema validation
-
-Result: FAILED
-```
-
-*Illustrative output only; actual output depends on the implemented reporting format and evaluated test cases.*
-
-This type of testing is particularly useful when changing prompts, updating models, or modifying application code that depends on AI-generated data.
+---
 
 ## Installation
 
-Installation instructions will be added once the package is implemented and published.
+### From Source (Local Development)
 
-During development, clone the repository and install its dependencies:
+Clone the repository and install dependencies using Node.js (>= 18.0.0 LTS):
 
 ```bash
 git clone https://github.com/adamblansett/llm-eval-toolkit.git
 cd llm-eval-toolkit
 npm install
+npm run build
 ```
 
-Run the test suite:
+To link the `llm-eval` command globally during local development:
 
 ```bash
-npm test
+npm link
 ```
 
-The commands above describe the intended development workflow and will be verified against the actual implementation.
+Verify the installation:
 
-## Usage
+```bash
+llm-eval --version
+# 0.1.0
+```
 
-The following illustrates the intended interface. Exact command names and configuration options may change during development.
+---
 
-Create an evaluation dataset:
+## Quick Start
+
+### 1. Create an Evaluation Dataset (`dataset.json`)
+
+Define an evaluation dataset specifying your input and the contracts your application requires:
 
 ```json
 {
-  "name": "receipt-extraction",
+  "version": 1,
+  "name": "receipt-eval",
+  "description": "Verify receipt parsing contracts",
   "cases": [
     {
       "id": "receipt-001",
-      "input": "Extract the transaction details.",
+      "input": "Receipt: Whole Foods Market, $42.50 USD, groceries",
       "expected": {
-        "merchant": "Example Store",
+        "merchant": "Whole Foods Market",
         "amount": 42.5,
-        "currency": "USD",
-        "category": "groceries"
+        "currency": "USD"
       },
       "assertions": [
+        { "type": "json" },
+        { "type": "exact_match" },
+        { "type": "required_fields", "fields": ["merchant", "amount", "currency"] },
         {
-          "type": "json"
-        },
-        {
-          "type": "required_fields",
-          "fields": [
-            "merchant",
-            "amount",
-            "currency",
-            "category"
-          ]
+          "type": "field_types",
+          "types": {
+            "merchant": "string",
+            "amount": "number",
+            "currency": "string"
+          }
         }
       ]
     }
@@ -185,140 +134,517 @@ Create an evaluation dataset:
 }
 ```
 
-Provide an output fixture or integrate the evaluator with an application-specific test harness.
+### 2. Supply an Output Fixture (`outputs.json`)
 
-Run the evaluation:
+Save the actual outputs produced by your AI application:
 
-```bash
-llm-eval run ./evaluations/receipt-extraction.json
+```json
+{
+  "version": 1,
+  "outputs": {
+    "receipt-001": {
+      "merchant": "Whole Foods Market",
+      "amount": 42.5,
+      "currency": "USD"
+    }
+  }
+}
 ```
 
-Export machine-readable results:
+### 3. Run the Evaluation
 
 ```bash
-llm-eval run ./evaluations/receipt-extraction.json --reporter json
+llm-eval run dataset.json -o outputs.json
 ```
 
-These commands represent the proposed CLI. They should not be considered available until implemented.
+Output:
 
-## Design Principles
+```text
+LLM Eval Report: receipt-eval (v1)
+Time: 2026-10-09T20:45:00.000Z | Duration: 4.2ms
+──────────────────────────────────────────────────────
+Evaluation Summary:
+  Total cases:       1
+  Passed cases:      1
+  Failed cases:      0
+  Pass rate:         100.0%
 
-### 1. Deterministic Core
+Assertions:
+  Total: 4 | Passed: 4 | Failed: 0 | Errors: 0
+──────────────────────────────────────────────────────
+Result: PASSED
+```
 
-Core assertions should be reproducible and independently testable.
+---
 
-### 2. No Mandatory API Keys
+## Evaluation Dataset Format
 
-Basic evaluation must not require an external AI provider or paid service.
+Evaluation datasets are validated with [Zod](https://zod.dev) before execution. Malformed datasets are rejected with actionable errors pointing directly to the offending case ID and property path.
 
-### 3. Explicit Contracts
+| Field         | Type               | Description                                         |
+| :------------ | :----------------- | :-------------------------------------------------- |
+| `version`     | `number` (integer) | **Required.** Must be `1`.                          |
+| `name`        | `string`           | **Required.** Unique, non-empty dataset identifier. |
+| `description` | `string`           | Optional descriptive summary.                       |
+| `cases`       | `Array<Case>`      | **Required.** Non-empty list of test cases.         |
+| `metadata`    | `object`           | Optional key-value metadata.                        |
 
-Tests should describe the properties an application requires rather than relying exclusively on subjective assessments.
+### Case Schema
 
-### 4. Clear Failure Reporting
+| Field         | Type               | Description                                             |
+| :------------ | :----------------- | :------------------------------------------------------ |
+| `id`          | `string`           | **Required.** Unique, non-empty case identifier.        |
+| `description` | `string`           | Optional human-readable description.                    |
+| `input`       | `unknown`          | **Required.** The input prompt or payload.              |
+| `expected`    | `unknown`          | Optional expected baseline value used by `exact_match`. |
+| `assertions`  | `Array<Assertion>` | **Required.** Non-empty list of assertion configs.      |
+| `metadata`    | `object`           | Optional custom metadata.                               |
 
-Every failed assertion should explain what failed and, where practical, identify the relevant input, output, and expected condition.
+---
 
-### 5. Provider Independence
+## Output Fixtures Format
 
-The evaluation engine should not be tightly coupled to one model vendor.
+The runner accepts model outputs mapped to case IDs. Four equivalent JSON formats are supported:
 
-### 6. Privacy by Default
+### Format A: Versioned Object (Recommended)
 
-Evaluation data should remain local unless users explicitly configure integrations that transmit it elsewhere.
+```json
+{
+  "version": 1,
+  "outputs": {
+    "case-001": "{\"status\":\"ok\"}",
+    "case-002": { "count": 42 }
+  }
+}
+```
 
-### 7. CI-Friendly Behavior
+### Format B: Direct Key-Value Map
 
-Exit codes and machine-readable reports should make the toolkit straightforward to integrate into automated workflows.
+```json
+{
+  "case-001": "{\"status\":\"ok\"}",
+  "case-002": { "count": 42 }
+}
+```
 
-## Technology Stack
+### Format C: Array of Output Objects
 
-The planned implementation uses:
+```json
+[
+  { "id": "case-001", "output": "{\"status\":\"ok\"}" },
+  { "id": "case-002", "output": { "count": 42 } }
+]
+```
 
-- **TypeScript** for the core engine and CLI.
-- **Node.js** for execution.
-- **Commander** for CLI argument parsing.
-- **JSON Schema** for structured output validation.
-- **Vitest** for automated testing.
-- **GitHub Actions** for continuous integration.
-- **npm** for package management and distribution.
+### Missing Outputs Handling
 
-Dependencies will be selected based on maintainability, licensing, security, and compatibility.
+If a case defined in the dataset does not have a corresponding entry in the output fixture:
 
-## Roadmap
+- The case is marked with status `ERROR` and `missingOutput: true`.
+- The aggregate report classifies the failure as an output availability issue rather than an assertion failure.
+- The run exits with code `1` (or `2` if the fixture file is invalid).
 
-### Phase 1: Evaluation Engine
+---
 
-- [ ] Establish the TypeScript project structure.
-- [ ] Define a versioned evaluation dataset format.
-- [ ] Implement dataset parsing and validation.
-- [ ] Implement JSON parsing and schema validation.
-- [ ] Implement exact-match assertions.
-- [ ] Implement required-content and prohibited-content assertions.
-- [ ] Add terminal and JSON reporters.
-- [ ] Define consistent exit codes.
-- [ ] Add automated unit and integration tests.
+## Built-In Evaluator Reference
 
-### Phase 2: Regression Testing
+### 1. `exact_match`
 
-- [ ] Implement baseline storage.
-- [ ] Compare evaluation results between runs.
-- [ ] Identify newly failing test cases.
-- [ ] Add configurable regression thresholds.
-- [ ] Provide GitHub Actions integration examples.
+Compares actual output with expected values using deterministic deep structural equality.
 
-### Phase 3: Extensibility
+```json
+{
+  "type": "exact_match",
+  "expected": { "status": "approved" },
+  "ignoreCase": false,
+  "trimWhitespace": false,
+  "normalizeNewlines": false
+}
+```
 
-- [ ] Define a public evaluator interface.
-- [ ] Support custom validation rules.
-- [ ] Add application integration examples.
-- [ ] Evaluate optional HTML reporting.
-- [ ] Document extension development.
+- If `expected` is omitted from the assertion config, it defaults to `case.expected`.
+- Supports primitives, arrays, nested objects, and strings.
+- Whitespace, newlines, and letter casing are preserved unless explicitly overridden with `trimWhitespace`, `normalizeNewlines`, or `ignoreCase`.
 
-### Phase 4: Optional Model-Based Evaluation
+---
 
-- [ ] Design provider adapter interfaces.
-- [ ] Support explicitly configured model-based evaluators.
-- [ ] Document evaluator limitations and nondeterminism.
-- [ ] Track evaluation costs where provider data is available.
-- [ ] Add safeguards around sensitive inputs and external transmission.
+### 2. `required_content`
 
-## What This Tool Does Not Promise
+Verifies that the output contains all configured required substring terms.
 
-LLM Eval Toolkit is intended to make AI application behavior more testable. It cannot guarantee that an LLM response is factually correct, unbiased, safe, or appropriate simply because it passes a collection of deterministic assertions.
+```json
+{
+  "type": "required_content",
+  "terms": ["encryption", "multi-factor authentication"],
+  "ignoreCase": true
+}
+```
 
-Model-based evaluation can also be inconsistent and should be treated as a separate, explicitly configured capability.
+- Accepts either a single string or an array of strings.
+- Reports exactly which terms are missing without dumping the full output.
 
-The toolkit is designed to complement ordinary unit tests, integration tests, monitoring, and application-specific validation—not replace them.
+---
+
+### 3. `prohibited_content`
+
+Ensures that the output does not contain any forbidden terms, keywords, or token prefixes.
+
+```json
+{
+  "type": "prohibited_content",
+  "terms": ["sk_live_", "password", "INTERNAL_CONFIDENTIAL"],
+  "ignoreCase": true
+}
+```
+
+- Reports which prohibited term caused the failure while sanitizing and redacting surrounding sensitive payload data from logs.
+
+---
+
+### 4. `json` / `json_valid`
+
+Verifies that the output is valid, parseable JSON.
+
+```json
+{
+  "type": "json",
+  "parseStringOnly": false
+}
+```
+
+- By default, accepts raw JSON strings or pre-parsed JSON objects/arrays.
+- If `parseStringOnly: true`, requires the output to be a string and parses it.
+- Provides actionable syntax error messages (line and character position) upon failure.
+
+---
+
+### 5. `json_schema`
+
+Validates output against a supplied JSON Schema using [Ajv](https://ajv.js.org).
+
+```json
+{
+  "type": "json_schema",
+  "schema": {
+    "type": "object",
+    "required": ["merchant", "amount", "currency"],
+    "properties": {
+      "merchant": { "type": "string" },
+      "amount": { "type": "number", "minimum": 0 },
+      "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+    },
+    "additionalProperties": false
+  }
+}
+```
+
+- Automatically parses JSON strings if the output has not already been deserialized.
+- Reports validation error paths (`instancePath`), keyword violations, and schema constraints.
+- Supports standard JSON Schema formats (e.g., `date-time`, `email`, `uri`).
+
+---
+
+### 6. `required_fields`
+
+Verifies that all required fields exist on a structured object.
+
+```json
+{
+  "type": "required_fields",
+  "fields": ["merchant", "amount", "user.profile.name", "items[0].price"]
+}
+```
+
+- Supports dot notation (`user.profile.name`) and bracket indexing (`items[0].price`) for nested paths.
+- Reports all missing fields in a single execution.
+
+---
+
+### 7. `field_types`
+
+Validates that object properties match expected data types.
+
+```json
+{
+  "type": "field_types",
+  "types": {
+    "merchant": "string",
+    "amount": "number",
+    "isTaxExempt": "boolean",
+    "items": "array",
+    "metadata": "object",
+    "deletedAt": "null"
+  }
+}
+```
+
+Supported types:
+
+- `string`: `typeof v === 'string'`
+- `number`: `typeof v === 'number' && Number.isFinite(v)` (rejects `NaN` and `Infinity`)
+- `boolean`: `typeof v === 'boolean'`
+- `array`: `Array.isArray(v)`
+- `object`: Non-null, non-array object
+- `null`: `v === null`
+
+---
+
+### 8. Custom Evaluator Interface
+
+Implement the `Evaluator<TConfig>` interface to define domain-specific validation rules:
+
+```typescript
+import { Evaluator, EvaluationContext, AssertionResult } from 'llm-eval-toolkit';
+
+export interface WordCountConfig {
+  minWords: number;
+}
+
+export class WordCountEvaluator implements Evaluator<WordCountConfig> {
+  public readonly type = 'min_word_count';
+
+  public evaluate(context: EvaluationContext<WordCountConfig>): AssertionResult {
+    const text = String(context.actualOutput);
+    const count = text.split(/\s+/).filter(Boolean).length;
+    const passed = count >= context.config.minWords;
+
+    return {
+      assertionType: this.type,
+      status: passed ? 'PASSED' : 'FAILED',
+      message: passed
+        ? `Output contains ${count} words (>= ${context.config.minWords})`
+        : `Output contains only ${count} words (minimum required: ${context.config.minWords})`,
+      actual: count,
+      expected: context.config.minWords,
+    };
+  }
+}
+```
+
+---
+
+## CLI Reference
+
+### `llm-eval run`
+
+Run an evaluation dataset against an outputs fixture file:
+
+```bash
+llm-eval run <dataset.json> -o <outputs.json> [options]
+```
+
+**Options:**
+
+- `-o, --outputs <path>`: **(Required)** Path to outputs JSON fixture file.
+- `-r, --reporter <terminal|json>`: Reporter format (default: `terminal`).
+- `--output <path>`: Write report to file instead of stdout.
+- `--save-baseline <path>`: Save evaluation results as a baseline JSON file.
+- `--compare-baseline <path>`: Compare results against an existing baseline file.
+- `--regression-policy <policy>`: Regression policy: `fail-on-regression` (default), `fail-on-any-failure`, or `strict`.
+- `--max-file-size <bytes>`: Maximum allowed input file size in bytes (default: 10 MB).
+- `--debug`: Print stack traces for unexpected errors.
+
+### `llm-eval baseline create`
+
+Run evaluation and save the baseline:
+
+```bash
+llm-eval baseline create <dataset.json> -o <outputs.json> --output <baseline.json>
+```
+
+### `llm-eval baseline compare`
+
+Compare an evaluation run against an existing baseline:
+
+```bash
+llm-eval baseline compare <dataset.json> -o <outputs.json> -b <baseline.json> [options]
+```
+
+### `llm-eval baseline inspect`
+
+Inspect and validate a saved baseline:
+
+```bash
+llm-eval baseline inspect <baseline.json>
+```
+
+---
+
+## Exit Code Contract
+
+Shell scripts and CI pipelines rely on consistent process exit codes:
+
+| Exit Code | Constant                           | Meaning                                                       |
+| :-------: | :--------------------------------- | :------------------------------------------------------------ |
+|    `0`    | `ExitCode.SUCCESS`                 | All assertions passed; no regressions detected.               |
+|    `1`    | `ExitCode.EVALUATION_FAILED`       | One or more assertions failed, or an output was missing.      |
+|    `2`    | `ExitCode.CONFIG_OR_DATASET_ERROR` | Malformed dataset, invalid options, or unparseable fixture.   |
+|    `3`    | `ExitCode.REGRESSION_DETECTED`     | A baseline comparison detected a regression policy violation. |
+|    `4`    | `ExitCode.RUNTIME_ERROR`           | File I/O failure or unexpected unhandled exception.           |
+
+---
+
+## Regression Detection & Baselines
+
+Baselines track case outcomes without persisting raw prompts or sensitive outputs.
+
+### Comparison Results
+
+Comparing a new evaluation against a baseline classifies every test case:
+
+- **Newly failing**: Case passed in baseline, but failed in the current run (flagged as regression).
+- **Recovered**: Case failed in baseline, but now passes in the current run.
+- **Remained passing**: Case passed in both baseline and current run.
+- **Remained failing**: Case failed in both baseline and current run.
+- **Added**: Case is new to the dataset.
+- **Removed**: Case existed in baseline but was removed from dataset.
+
+### Regression Policies
+
+- `fail-on-regression` (default): Fails only if previously passing cases now fail.
+- `fail-on-any-failure`: Fails if any test case in the current run fails, regardless of baseline.
+- `strict`: Fails if newly failing cases are detected **or** if any baseline cases were removed.
+
+---
+
+## Programmatic API
+
+LLM Eval Toolkit exposes a complete TypeScript programmatic API:
+
+```typescript
+import {
+  loadDataset,
+  loadOutputs,
+  runEvaluation,
+  createBaselineFromReport,
+  saveBaseline,
+  loadBaseline,
+  compareEvaluationWithBaseline,
+  TerminalReporter,
+  JsonReporter,
+  ExitCode,
+} from 'llm-eval-toolkit';
+
+async function main() {
+  // Load & validate
+  const dataset = await loadDataset('./dataset.json');
+  const outputs = await loadOutputs('./outputs.json');
+
+  // Execute
+  const report = await runEvaluation(dataset, outputs);
+
+  // Compare against baseline
+  const baseline = await loadBaseline('./baseline.json');
+  const regression = compareEvaluationWithBaseline(report, baseline, 'fail-on-regression');
+
+  // Format terminal report
+  const reporter = new TerminalReporter();
+  console.log(reporter.format(report, regression));
+
+  if (regression.isRegression) {
+    process.exit(ExitCode.REGRESSION_DETECTED);
+  }
+}
+
+main().catch(console.error);
+```
+
+---
+
+## GitHub Actions CI Integration
+
+Integrate evaluation and regression prevention directly into your GitHub Actions workflow:
+
+```yaml
+name: AI Output Contract Evaluation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build toolkit
+        run: npm run build
+
+      - name: Run contract evaluation & check regression
+        run: |
+          npx llm-eval run ./examples/receipt-extraction/dataset.json \
+            --outputs ./examples/receipt-extraction/outputs.json \
+            --reporter terminal
+```
+
+---
+
+## Security & Privacy Guarantees
+
+- **Zero Network Transmission**: The evaluation engine makes zero HTTP requests and sends no telemetry.
+- **No API Keys**: Evaluation executes offline against deterministic contracts.
+- **No Dynamic Code Execution**: Datasets are never evaluated using `eval()`, `vm`, or child processes.
+- **Path Traversal Protection**: File paths are normalized and bounded.
+- **Atomic File Operations**: Baselines and reports use temporary files and atomic renames to prevent partial corruption.
+- **Payload Redaction**: Reports truncate long strings and avoid dumping sensitive variables in logs.
+
+---
+
+## Known Limitations
+
+- **Saved Fixtures Focus**: Tests application contracts, JSON validity, schemas, and regressions. It does not measure subjective creativity or semantic reasoning.
+- **Provider Adapters**: Live API calls (e.g. OpenAI, Anthropic, Gemini) are intentionally not part of the core offline engine and belong in future extension packages.
+
+---
+
+## Development & Verification
+
+### Available Scripts
+
+- `npm run build`: Compile TypeScript with strict settings to `dist/`.
+- `npm run test`: Run automated Vitest test suite.
+- `npm run test:watch`: Run tests in watch mode.
+- `npm run lint`: Run ESLint.
+- `npm run typecheck`: Run TypeScript type checking on both `src/` and `tests/`.
+- `npm run format`: Format code with Prettier.
+- `npm run format:check`: Verify Prettier formatting.
+- `npm run verify`: Execute linting, type checking, format checks, test suite, and build in sequence.
+
+---
 
 ## Contributing
 
-Contributions are welcome.
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our workflow and verification standards.
 
-Please open an issue before undertaking major changes so the proposed design can be discussed.
-
-When submitting a pull request:
-
-1. Include tests for new behavior.
-2. Preserve existing functionality unless a change is intentional.
-3. Document changes to public interfaces.
-4. Avoid introducing mandatory external services into the core engine.
-5. Run the test suite and lint checks.
-
-Contribution instructions will be expanded as the project matures.
+---
 
 ## License
 
-This project is intended to be released under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
 
-The repository will include the full license text before its first release.
+---
 
 ## Author
 
 **Adam Blansett**  
 Senior Full-Stack & AI Engineer
 
-- Website: https://adamblansett.com
-- GitHub: https://github.com/adamblansett
-
-Building practical tools for reliable software, AI application development, and production engineering.
+- Website: [adamblansett.com](https://adamblansett.com)
+- GitHub: [@adamblansett](https://github.com/adamblansett)

@@ -1,0 +1,71 @@
+{
+  "name": "llm-eval-toolkit",
+  "version": "0.1.0",
+  "description": "Developer-focused, contract-based evaluation framework and regression detection for AI application outputs",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "llm-eval": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run lint && npm run typecheck && npm run format:check && npm run test && npm run build"
+  },
+  "keywords": [
+    "llm",
+    "eval",
+    "evaluation",
+    "testing",
+    "ai",
+    "regression",
+    "json-schema",
+    "contracts"
+  ],
+  "author": "Adam Blansett <https://adamblansett.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamblansett/llm-eval-toolkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adamblansett/llm-eval-toolkit/issues"
+  },
+  "homepage": "https://github.com/adamblansett/llm-eval-toolkit#readme",
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "commander": "^13.1.0",
+    "picocolors": "^1.1.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.5",
+    "eslint": "^9.21.0",
+    "prettier": "^3.5.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.24.1",
+    "vitest": "^3.0.7"
+  }
+}

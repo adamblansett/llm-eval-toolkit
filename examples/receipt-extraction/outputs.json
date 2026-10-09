@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "outputs": {
+    "receipt-001": {
+      "merchant": "Whole Foods Market",
+      "amount": 42.5,
+      "currency": "USD",
+      "category": "groceries",
+      "items": [
+        {
+          "name": "Organic Apples",
+          "price": 42.5
+        }
+      ]
+    },
+    "receipt-002": "{\"merchant\": \"Blue Bottle Coffee\", \"amount\": 14.2, \"currency\": \"USD\", \"category\": \"dining\", \"items\": [{\"name\": \"Pour Over\", \"price\": 7.0}, {\"name\": \"Pastry\", \"price\": 7.2}]}",
+    "receipt-003": {
+      "merchant": "Acme Hardware",
+      "amount": -15.0,
+      "category": "hardware"
+    },
+    "receipt-004": "{merchant: 'broken JSON missing quotes and closing brace'"
+  }
+}

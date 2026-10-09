@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "name": "receipt-extraction",
+  "description": "Evaluate structured receipt extraction outputs against application contracts",
+  "cases": [
+    {
+      "id": "receipt-001",
+      "description": "Standard grocery receipt with single item",
+      "input": "Receipt from Whole Foods Market on 2025-10-01. Total $42.50 USD. 1x Organic Apples $42.50. Category: groceries.",
+      "expected": {
+        "merchant": "Whole Foods Market",
+        "amount": 42.5,
+        "currency": "USD",
+        "category": "groceries",
+        "items": [
+          {
+            "name": "Organic Apples",
+            "price": 42.5
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "json"
+        },
+        {
+          "type": "exact_match"
+        },
+        {
+          "type": "required_fields",
+          "fields": ["merchant", "amount", "currency", "category", "items"]
+        },
+        {
+          "type": "field_types",
+          "types": {
+            "merchant": "string",
+            "amount": "number",
+            "currency": "string",
+            "category": "string",
+            "items": "array"
+          }
+        }
+      ]
+    },
+    {
+      "id": "receipt-002",
+      "description": "Coffee shop receipt with valid schema compliance",
+      "input": "Blue Bottle Coffee, Total: $14.20 USD. 2 items: Pour Over $7.00, Pastry $7.20. Category: dining.",
+      "assertions": [
+        {
+          "type": "json"
+        },
+        {
+          "type": "json_schema",
+          "schema": {
+            "type": "object",
+            "required": ["merchant", "amount", "currency", "category", "items"],
+            "properties": {
+              "merchant": { "type": "string" },
+              "amount": { "type": "number", "minimum": 0 },
+              "currency": { "type": "string" },
+              "category": { "type": "string" },
+              "items": { "type": "array" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "receipt-003",
+      "description": "Failure case: Missing currency field and negative amount",
+      "input": "Acme Hardware, refund: -$15.00",
+      "assertions": [
+        {
+          "type": "json"
+        },
+        {
+          "type": "required_fields",
+          "fields": ["merchant", "amount", "currency", "category"]
+        },
+        {
+          "type": "json_schema",
+          "schema": {
+            "type": "object",
+            "required": ["merchant", "amount", "currency", "category"],
+            "properties": {
+              "merchant": { "type": "string" },
+              "amount": { "type": "number", "minimum": 0 },
+              "currency": { "type": "string" },
+              "category": { "type": "string" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "receipt-004",
+      "description": "Failure case: Malformed raw JSON string output",
+      "input": "Malformed receipt text",
+      "assertions": [
+        {
+          "type": "json"
+        }
+      ]
+    }
+  ]
+}
