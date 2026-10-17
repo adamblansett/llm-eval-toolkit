@@ -36,6 +36,7 @@ LLM Eval Toolkit validates AI outputs against explicit contracts, detects regres
 - [Known Limitations](#known-limitations)
 - [Development & Verification](#development--verification)
 - [Contributing](#contributing)
+- [Legal Disclaimer & Limitation of Liability](#legal-disclaimer--limitation-of-liability)
 - [License](#license)
 - [Author](#author)
 
@@ -632,6 +633,29 @@ jobs:
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our workflow and verification standards.
+
+---
+
+## ⚖️ Legal Disclaimer & Limitation of Liability
+
+### 1. "AS IS" and Express Warranty Disclaimer
+This software, documentation, evaluation heuristics, benchmark scorers, and regression algorithms are provided on an **"AS IS"** and **"AS AVAILABLE"** basis, **WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND**, either express, implied, statutory, or otherwise. To the maximum extent permitted by applicable law, the author, copyright holders, and contributors expressly disclaim all warranties, including but not limited to implied warranties of merchantability, fitness for a particular purpose, title, quiet enjoyment, accuracy, and non-infringement.
+
+### 2. Generative AI & Model Non-Determinism Disclaimer
+- **Inherent Non-Determinism:** Large language models (LLMs) and generative artificial intelligence systems are inherently non-deterministic, probabilistic, and prone to hallucinations, inaccuracies, biases, and unexpected outputs.
+- **Evaluation Heuristics vs. Ground Truth:** The evaluation metrics provided by this toolkit (including exact match, semantic similarity, toxicity, JSON schema validation, latency, and cost calculations) are heuristic and probabilistic assessments. A high benchmark score or passing evaluation does **not** guarantee that an AI model or prompt will behave reliably, safely, accurately, or appropriately in live production or under adversarial conditions.
+- **High-Risk & Safety-Critical Exclusions:** This software is **NOT** certified or intended for use in evaluating AI models deployed in safety-critical, medical, healthcare, legal, financial advisory, aviation, life-support, or automated weapons systems, or any environment where AI hallucinations or inaccuracies could result in personal injury, death, or severe financial or environmental harm.
+
+### 3. Third-Party Provider Usage & Financial Liability
+- **API Charges & Rate Limits:** Any live evaluations executed against third-party AI APIs (such as OpenAI, Anthropic, Google Gemini, Mistral, Cohere, or local runtimes) use the user's own credentials, network bandwidth, and compute quotas.
+- Users are solely responsible for monitoring their token consumption, API expenditures, rate limits, and compliance with the terms of service of any third-party AI provider.
+- The author and contributors shall not be liable for any API billing charges, account suspensions, rate limit throttling, or provider terms violations incurred by running evaluations.
+
+### 4. Limitation of Liability
+To the maximum extent permitted by applicable law, **IN NO EVENT SHALL THE AUTHOR, COPYRIGHT HOLDERS, OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, PUNITIVE, OR CONSEQUENTIAL DAMAGES** (including, but not limited to, loss of use, data, revenue, profits, business, or goodwill; AI hallucinations; defamation; copyright infringement by generated content; system downtime; or procurement of substitute goods or services), however caused and on any theory of liability, whether in contract, strict liability, tort (including negligence or otherwise), or statute, arising in any way out of the use, reproduction, modification, distribution, or reliance upon this software, even if advised of the possibility of such damages.
+
+### 5. Third-Party Trademarks & Non-Affiliation
+All product names, logos, brands, and registered trademarks mentioned within this project (including OpenAI, Anthropic, Google Gemini, Mistral, Meta Llama, Hugging Face, Node.js, and Vitest) are the property of their respective owners. Mention of these entities does not imply endorsement, sponsorship, or affiliation with the author.
 
 ---
 
