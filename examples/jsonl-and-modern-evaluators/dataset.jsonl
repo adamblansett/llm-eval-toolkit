@@ -1,0 +1,5 @@
+{"_meta":true,"version":1,"name":"modern-evaluators-demo","description":"Demonstrating JSONL streaming format and modern evaluators"}
+{"id":"calc-01","description":"Numeric calculation within tolerance","input":"Calculate 10 / 3","tags":["math","numeric"],"assertions":[{"type":"numeric_range","expected":3.333,"tolerance":0.005}]}
+{"id":"regex-01","description":"Regex format matching on order reference","input":"Generate order confirmation","tags":["regex"],"assertions":[{"type":"regex_match","pattern":"^ORD-[0-9]{4}-[A-Z]{2}$"}]}
+{"id":"sim-01","description":"Semantic similarity with Levenshtein and Jaccard","input":"Summarize policy","tags":["similarity"],"assertions":[{"type":"similarity","expected":"All employees must complete compliance training by end of quarter.","minThreshold":0.70,"algorithm":"jaccard"}]}
+{"id":"fence-01","description":"Extracting JSON from markdown code fences","input":"Return JSON user profile","tags":["json","markdown"],"assertions":[{"type":"json","stripCodeFences":true}]}

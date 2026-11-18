@@ -83,6 +83,34 @@ export async function readJsonSafely<T = unknown>(
 }
 
 /**
+ * Reads and parses a JSON Lines (.jsonl) file safely.
+ */
+export async function readJsonlSafely<T = unknown>(
+  filePath: string,
+  options?: ReadFileOptions,
+): Promise<T[]> {
+  const content = await readFileSafely(filePath, options);
+  const lines = content.split('\n');
+  const results: T[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    if (!rawLine) continue;
+    const line = rawLine.trim();
+    if (line.length === 0) continue;
+
+    try {
+      results.push(JSON.parse(line) as T);
+    } catch (err: unknown) {
+      const error = err as Error;
+      throw new InvalidJsonFileError(filePath, `Line ${i + 1} is not valid JSON: ${error.message}`);
+    }
+  }
+
+  return results;
+}
+
+/**
  * Atomically writes a file by writing to a temporary sibling file and renaming.
  * Ensures parent directories are created.
  */

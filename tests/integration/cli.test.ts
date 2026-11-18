@@ -368,4 +368,166 @@ describe('CLI Integration Tests', () => {
       expect(error.stderr).toContain('Invalid regression policy');
     }
   });
+
+  it('runs evaluation with --reporter markdown', async () => {
+    const datasetPath = path.join(tempDir, 'dataset.json');
+    const outputsPath = path.join(tempDir, 'outputs.json');
+
+    await writeFileAtomic(
+      datasetPath,
+      JSON.stringify({
+        version: 1,
+        name: 'md-test',
+        cases: [{ id: 'c1', input: 'hi', assertions: [{ type: 'exact_match', expected: 'hi' }] }],
+      }),
+    );
+    await writeFileAtomic(outputsPath, JSON.stringify({ c1: 'hi' }));
+
+    const { stdout } = await execFileAsync('node', [
+      cliEntry,
+      'run',
+      datasetPath,
+      '-o',
+      outputsPath,
+      '--reporter',
+      'markdown',
+    ]);
+
+    expect(stdout).toContain('# LLM Eval Report: md-test');
+    expect(stdout).toContain('| **Total Cases** | `1` |');
+  });
+
+  it('runs evaluation with --reporter junit', async () => {
+    const datasetPath = path.join(tempDir, 'dataset.json');
+    const outputsPath = path.join(tempDir, 'outputs.json');
+
+    await writeFileAtomic(
+      datasetPath,
+      JSON.stringify({
+        version: 1,
+        name: 'junit-test',
+        cases: [{ id: 'c1', input: 'hi', assertions: [{ type: 'exact_match', expected: 'hi' }] }],
+      }),
+    );
+    await writeFileAtomic(outputsPath, JSON.stringify({ c1: 'hi' }));
+
+    const { stdout } = await execFileAsync('node', [
+      cliEntry,
+      'run',
+      datasetPath,
+      '-o',
+      outputsPath,
+      '--reporter',
+      'junit',
+    ]);
+
+    expect(stdout).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(stdout).toContain('<testsuite name="junit-test"');
+  });
+
+  it('filters cases using --tag', async () => {
+    const datasetPath = path.join(tempDir, 'dataset.json');
+    const outputsPath = path.join(tempDir, 'outputs.json');
+
+    await writeFileAtomic(
+      datasetPath,
+      JSON.stringify({
+        version: 1,
+        name: 'tag-test',
+        cases: [
+          {
+            id: 'c1',
+            input: 'hi',
+            tags: ['fast'],
+            assertions: [{ type: 'exact_match', expected: 'hi' }],
+          },
+          {
+            id: 'c2',
+            input: 'slow',
+            tags: ['slow'],
+            assertions: [{ type: 'exact_match', expected: 'hi' }],
+          },
+        ],
+      }),
+    );
+    await writeFileAtomic(outputsPath, JSON.stringify({ c1: 'hi', c2: 'hi' }));
+
+    const { stdout } = await execFileAsync('node', [
+      cliEntry,
+      'run',
+      datasetPath,
+      '-o',
+      outputsPath,
+      '--tag',
+      'fast',
+      '--reporter',
+      'json',
+    ]);
+
+    const report = JSON.parse(stdout).report;
+    expect(report.passedCases).toBe(1);
+    expect(report.skippedCases).toBe(1);
+  });
+
+  it('updates baseline snapshot with -u / --update-baseline', async () => {
+    const datasetPath = path.join(tempDir, 'dataset.json');
+    const outputsPath = path.join(tempDir, 'outputs.json');
+    const baselinePath = path.join(tempDir, 'new-baseline.json');
+
+    await writeFileAtomic(
+      datasetPath,
+      JSON.stringify({
+        version: 1,
+        name: 'snap-test',
+        cases: [{ id: 'c1', input: 'hi', assertions: [{ type: 'exact_match', expected: 'hi' }] }],
+      }),
+    );
+    await writeFileAtomic(outputsPath, JSON.stringify({ c1: 'hi' }));
+
+    await execFileAsync('node', [
+      cliEntry,
+      'run',
+      datasetPath,
+      '-o',
+      outputsPath,
+      '-u',
+      baselinePath,
+    ]);
+
+    const baseline = JSON.parse(await fs.readFile(baselinePath, 'utf-8'));
+    expect(baseline.datasetName).toBe('snap-test');
+    expect(baseline.cases.c1.status).toBe('PASSED');
+  });
+
+  it('validates a dataset via the dataset validate command', async () => {
+    const validDatasetPath = path.join(tempDir, 'valid.json');
+    await writeFileAtomic(
+      validDatasetPath,
+      JSON.stringify({
+        version: 1,
+        name: 'valid-cli-test',
+        cases: [{ id: 'c1', input: 'hi', assertions: [{ type: 'exact_match', expected: 'hi' }] }],
+      }),
+    );
+
+    const { stdout } = await execFileAsync('node', [
+      cliEntry,
+      'dataset',
+      'validate',
+      validDatasetPath,
+    ]);
+    expect(stdout).toContain('Dataset is valid');
+
+    const invalidDatasetPath = path.join(tempDir, 'invalid.json');
+    await writeFileAtomic(invalidDatasetPath, JSON.stringify({ version: 99 }));
+
+    try {
+      await execFileAsync('node', [cliEntry, 'dataset', 'validate', invalidDatasetPath]);
+      expect.fail('Should have failed with code 2');
+    } catch (err: unknown) {
+      const error = err as { code: number; stderr: string };
+      expect(error.code).toBe(ExitCode.CONFIG_OR_DATASET_ERROR);
+      expect(error.stderr).toContain('Dataset validation failed');
+    }
+  });
 });

@@ -13,3 +13,15 @@ export interface TerminalReporterOptions {
 export interface JsonReporterOptions {
   pretty?: boolean;
 }
+
+export interface MarkdownReporterOptions {
+  includeDetails?: boolean;
+}
+
+export interface JunitReporterOptions {
+  suiteName?: string;
+}
+
+export interface GitHubReporterOptions {
+  writeStepSummary?: boolean;
+}

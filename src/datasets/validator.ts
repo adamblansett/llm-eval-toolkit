@@ -11,6 +11,12 @@ export const BUILTIN_ASSERTION_TYPES: readonly BuiltinAssertionType[] = [
   'json_schema',
   'required_fields',
   'field_types',
+  'numeric_range',
+  'numeric',
+  'regex_match',
+  'regex',
+  'similarity',
+  'levenshtein',
 ] as const;
 
 const ExactMatchSchema = z
@@ -53,6 +59,7 @@ const JsonValidSchema = z
   .object({
     type: z.union([z.literal('json'), z.literal('json_valid')]),
     parseStringOnly: z.boolean().optional(),
+    stripCodeFences: z.boolean().optional(),
   })
   .strict();
 
@@ -62,6 +69,7 @@ const JsonSchemaSchema = z
     schema: z
       .record(z.string(), z.unknown())
       .refine((val) => Object.keys(val).length > 0, 'JSON Schema must not be an empty object'),
+    stripCodeFences: z.boolean().optional(),
   })
   .strict();
 
@@ -82,6 +90,44 @@ const FieldTypesSchema = z
     types: z
       .record(z.string(), SupportedFieldTypeEnum)
       .refine((val) => Object.keys(val).length > 0, 'Must specify at least one field type'),
+  })
+  .strict();
+
+const NumericRangeSchema = z
+  .object({
+    type: z.union([z.literal('numeric_range'), z.literal('numeric')]),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    expected: z.number().optional(),
+    tolerance: z.number().nonnegative('Tolerance must be non-negative').optional(),
+    path: z.string().optional(),
+  })
+  .strict()
+  .refine(
+    (data) => data.min !== undefined || data.max !== undefined || data.expected !== undefined,
+    'numeric_range requires at least one of "min", "max", or "expected"',
+  );
+
+const RegexMatchSchema = z
+  .object({
+    type: z.union([z.literal('regex_match'), z.literal('regex')]),
+    pattern: z.string().min(1, 'Pattern cannot be empty'),
+    flags: z.string().optional(),
+    path: z.string().optional(),
+    invert: z.boolean().optional(),
+    message: z.string().optional(),
+  })
+  .strict();
+
+const SimilaritySchema = z
+  .object({
+    type: z.union([z.literal('similarity'), z.literal('levenshtein')]),
+    expected: z.string(),
+    minThreshold: z.number().min(0).max(1, 'Threshold must be between 0 and 1'),
+    algorithm: z.enum(['levenshtein', 'jaccard']).optional(),
+    ignoreCase: z.boolean().optional(),
+    trimWhitespace: z.boolean().optional(),
+    path: z.string().optional(),
   })
   .strict();
 
@@ -205,6 +251,7 @@ export function validateDataset(raw: unknown, options?: ValidateDatasetOptions):
       const KNOWN_CASE_KEYS = new Set([
         'id',
         'description',
+        'tags',
         'input',
         'expected',
         'assertions',
@@ -216,6 +263,20 @@ export function validateDataset(raw: unknown, options?: ValidateDatasetOptions):
             path: `${casePath}.${key}`,
             caseId: activeCaseId,
             message: `Unexpected property "${key}" in case "${caseId ?? caseIndex}". Custom fields should be placed inside "metadata".`,
+          });
+        }
+      }
+
+      // Tags check
+      if (c['tags'] !== undefined) {
+        if (
+          !Array.isArray(c['tags']) ||
+          !c['tags'].every((t) => typeof t === 'string' && t.trim().length > 0)
+        ) {
+          issues.push({
+            path: `${casePath}.tags`,
+            caseId: activeCaseId,
+            message: `Case "${caseId ?? caseIndex}" tags must be an array of non-empty strings`,
           });
         }
       }
@@ -344,6 +405,33 @@ export function validateDataset(raw: unknown, options?: ValidateDatasetOptions):
                 path: assertionPath,
                 caseId: activeCaseId,
                 message: `Invalid field_types assertion in case "${caseId ?? caseIndex}": ${parsed.error.issues.map((i) => i.message).join('; ')}`,
+              });
+            }
+          } else if (assertionType === 'numeric_range' || assertionType === 'numeric') {
+            const parsed = NumericRangeSchema.safeParse(a);
+            if (!parsed.success) {
+              issues.push({
+                path: assertionPath,
+                caseId: activeCaseId,
+                message: `Invalid numeric_range assertion in case "${caseId ?? caseIndex}": ${parsed.error.issues.map((i) => i.message).join('; ')}`,
+              });
+            }
+          } else if (assertionType === 'regex_match' || assertionType === 'regex') {
+            const parsed = RegexMatchSchema.safeParse(a);
+            if (!parsed.success) {
+              issues.push({
+                path: assertionPath,
+                caseId: activeCaseId,
+                message: `Invalid regex_match assertion in case "${caseId ?? caseIndex}": ${parsed.error.issues.map((i) => i.message).join('; ')}`,
+              });
+            }
+          } else if (assertionType === 'similarity' || assertionType === 'levenshtein') {
+            const parsed = SimilaritySchema.safeParse(a);
+            if (!parsed.success) {
+              issues.push({
+                path: assertionPath,
+                caseId: activeCaseId,
+                message: `Invalid similarity assertion in case "${caseId ?? caseIndex}": ${parsed.error.issues.map((i) => i.message).join('; ')}`,
               });
             }
           }

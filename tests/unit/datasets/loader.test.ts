@@ -122,4 +122,46 @@ describe('dataset and outputs loader', () => {
     expect(Object.prototype.hasOwnProperty.call(normalized, 'case-null')).toBe(true);
     expect(normalized['case-null']).toBeNull();
   });
+
+  it('loads dataset from .jsonl file with metadata header', async () => {
+    const jsonlPath = path.join(tempDir, 'dataset.jsonl');
+    const content = [
+      JSON.stringify({ _meta: true, version: 1, name: 'jsonl-stream-dataset' }),
+      JSON.stringify({
+        id: 'c1',
+        input: 'hi',
+        expected: 'there',
+        assertions: [{ type: 'exact_match' }],
+      }),
+      JSON.stringify({
+        id: 'c2',
+        input: 'bye',
+        expected: 'now',
+        assertions: [{ type: 'exact_match' }],
+      }),
+    ].join('\n');
+
+    await writeFileAtomic(jsonlPath, content);
+    const loaded = await loadDataset(jsonlPath);
+
+    expect(loaded.name).toBe('jsonl-stream-dataset');
+    expect(loaded.version).toBe(1);
+    expect(loaded.cases.length).toBe(2);
+    expect(loaded.cases[0]?.id).toBe('c1');
+    expect(loaded.cases[1]?.id).toBe('c2');
+  });
+
+  it('loads outputs from .jsonl file with record per line', async () => {
+    const jsonlOutputPath = path.join(tempDir, 'outputs.jsonl');
+    const content = [
+      JSON.stringify({ id: 'c1', output: 'result-1' }),
+      JSON.stringify({ caseId: 'c2', output: 'result-2' }),
+    ].join('\n');
+
+    await writeFileAtomic(jsonlOutputPath, content);
+    const loaded = await loadOutputs(jsonlOutputPath);
+
+    expect(loaded['c1']).toBe('result-1');
+    expect(loaded['c2']).toBe('result-2');
+  });
 });

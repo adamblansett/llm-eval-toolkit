@@ -78,4 +78,16 @@ describe('JsonSchemaEvaluator', () => {
     expect(result.status).toBe('ERROR');
     expect(result.message).toContain('Invalid JSON Schema definition');
   });
+
+  it('validates schema on fenced JSON when stripCodeFences is true', () => {
+    const fenced = '```json\n{"id": "fenced-1", "score": 90}\n```';
+    const result = evaluator.evaluate({
+      caseId: 'test-6',
+      input: 'prompt',
+      actualOutput: fenced,
+      config: { type: 'json_schema', schema: testSchema, stripCodeFences: true },
+    });
+
+    expect(result.status).toBe('PASSED');
+  });
 });

@@ -234,4 +234,109 @@ describe('validateDataset', () => {
       }),
     ).toThrow(DatasetValidationError);
   });
+
+  it('validates numeric_range and numeric assertion configurations', () => {
+    const dataset = {
+      ...validBaseDataset,
+      cases: [
+        {
+          id: 'num-case',
+          input: 'test',
+          assertions: [
+            { type: 'numeric_range', min: 0, max: 100 },
+            { type: 'numeric', expected: 50, tolerance: 5 },
+          ],
+        },
+      ],
+    };
+    const validated = validateDataset(dataset);
+    expect(validated.cases[0]?.assertions.length).toBe(2);
+
+    expect(() =>
+      validateDataset({
+        ...validBaseDataset,
+        cases: [
+          {
+            id: 'bad-num',
+            input: 'test',
+            assertions: [{ type: 'numeric_range' }], // missing all constraints
+          },
+        ],
+      }),
+    ).toThrow(/numeric_range requires at least one of "min", "max", or "expected"/);
+  });
+
+  it('validates regex_match and regex assertion configurations', () => {
+    const dataset = {
+      ...validBaseDataset,
+      cases: [
+        {
+          id: 'regex-case',
+          input: 'test',
+          assertions: [{ type: 'regex_match', pattern: '^\\d+$', flags: 'i', invert: false }],
+        },
+      ],
+    };
+    const validated = validateDataset(dataset);
+    expect(validated.cases[0]?.assertions.length).toBe(1);
+
+    expect(() =>
+      validateDataset({
+        ...validBaseDataset,
+        cases: [
+          {
+            id: 'bad-regex',
+            input: 'test',
+            assertions: [{ type: 'regex_match' }], // missing pattern
+          },
+        ],
+      }),
+    ).toThrow(/Required/);
+  });
+
+  it('validates similarity and levenshtein assertion configurations', () => {
+    const dataset = {
+      ...validBaseDataset,
+      cases: [
+        {
+          id: 'sim-case',
+          input: 'test',
+          assertions: [
+            { type: 'similarity', expected: 'target', minThreshold: 0.85, algorithm: 'jaccard' },
+          ],
+        },
+      ],
+    };
+    const validated = validateDataset(dataset);
+    expect(validated.cases[0]?.assertions.length).toBe(1);
+
+    expect(() =>
+      validateDataset({
+        ...validBaseDataset,
+        cases: [
+          {
+            id: 'bad-sim',
+            input: 'test',
+            assertions: [{ type: 'similarity', expected: 'target', minThreshold: 1.5 }], // > 1
+          },
+        ],
+      }),
+    ).toThrow(DatasetValidationError);
+  });
+
+  it('accepts and validates tags array on cases', () => {
+    const dataset = {
+      ...validBaseDataset,
+      cases: [
+        {
+          id: 'tagged-case',
+          input: 'test',
+          tags: ['smoke', 'api', 'regression'],
+          assertions: [{ type: 'exact_match', expected: 'test' }],
+        },
+      ],
+    };
+    const validated = validateDataset(dataset);
+    expect(validated.cases[0]?.tags).toEqual(['smoke', 'api', 'regression']);
+  });
 });

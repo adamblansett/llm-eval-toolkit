@@ -7,3 +7,6 @@ export * from './json-valid.js';
 export * from './json-schema.js';
 export * from './required-fields.js';
 export * from './field-types.js';
+export * from './numeric-range.js';
+export * from './regex-match.js';
+export * from './similarity.js';

@@ -1,5 +1,6 @@
+import path from 'node:path';
 import { SUPPORTED_OUTPUT_VERSION } from '../config/constants.js';
-import { readJsonSafely } from '../utils/fs.js';
+import { readJsonSafely, readJsonlSafely } from '../utils/fs.js';
 import { resolveSafePath } from '../utils/path.js';
 import { validateDataset, type ValidateDatasetOptions } from './validator.js';
 import type { EvaluationDataset, OutputMap } from './types.js';
@@ -9,13 +10,49 @@ export interface LoadOptions extends ValidateDatasetOptions {
 }
 
 /**
- * Loads and validates an evaluation dataset JSON file.
+ * Loads and validates an evaluation dataset JSON or JSONL file.
  */
 export async function loadDataset(
   filePath: string,
   options?: LoadOptions,
 ): Promise<EvaluationDataset> {
   const resolvedPath = resolveSafePath(filePath);
+
+  if (resolvedPath.endsWith('.jsonl')) {
+    const items = await readJsonlSafely<Record<string, unknown>>(resolvedPath, {
+      maxSizeBytes: options?.maxSizeBytes,
+    });
+
+    let datasetObj: unknown;
+    if (
+      items.length > 0 &&
+      typeof items[0] === 'object' &&
+      items[0] !== null &&
+      'version' in items[0] &&
+      'name' in items[0] &&
+      !('assertions' in items[0])
+    ) {
+      const header = items[0];
+      const cases = items.slice(1);
+      datasetObj = {
+        version: header.version,
+        name: header.name,
+        description: header.description,
+        metadata: header.metadata,
+        cases,
+      };
+    } else {
+      const defaultName = path.basename(resolvedPath, '.jsonl');
+      datasetObj = {
+        version: 1,
+        name: defaultName,
+        cases: items,
+      };
+    }
+
+    return validateDataset(datasetObj, options);
+  }
+
   const json = await readJsonSafely(resolvedPath, { maxSizeBytes: options?.maxSizeBytes });
   return validateDataset(json, options);
 }
@@ -35,7 +72,7 @@ export function normalizeOutputs(raw: unknown): OutputMap {
     throw new OutputFixtureError('Outputs file is empty or null');
   }
 
-  // Format 1: Array of { id, output }
+  // Format 1: Array of { id / caseId, output } or { [caseId]: output }
   if (Array.isArray(raw)) {
     const map: OutputMap = {};
     for (let i = 0; i < raw.length; i++) {
@@ -45,18 +82,26 @@ export function normalizeOutputs(raw: unknown): OutputMap {
           `Outputs array item at index ${i} must be an object with "id" and "output"`,
         );
       }
-      const { id, output } = item as { id?: unknown; output?: unknown };
-      if (typeof id !== 'string' || id.trim().length === 0) {
+      const itemObj = item as Record<string, unknown>;
+      const id = (itemObj['id'] ?? itemObj['caseId']) as string | undefined;
+
+      if (typeof id === 'string' && id.trim().length > 0) {
+        if (!('output' in itemObj)) {
+          throw new OutputFixtureError(
+            `Outputs array item at index ${i} is missing "output" field`,
+          );
+        }
+        if (Object.prototype.hasOwnProperty.call(map, id)) {
+          throw new OutputFixtureError(
+            `Outputs array contains duplicate case ID "${id}" at index ${i}`,
+          );
+        }
+        map[id] = itemObj['output'];
+      } else {
         throw new OutputFixtureError(
           `Outputs array item at index ${i} is missing a valid string "id"`,
         );
       }
-      if (Object.prototype.hasOwnProperty.call(map, id)) {
-        throw new OutputFixtureError(
-          `Outputs array contains duplicate case ID "${id}" at index ${i}`,
-        );
-      }
-      map[id] = output;
     }
     return map;
   }
@@ -100,13 +145,21 @@ export function normalizeOutputs(raw: unknown): OutputMap {
 }
 
 /**
- * Loads and normalizes an output fixtures JSON file.
+ * Loads and normalizes an output fixtures JSON or JSONL file.
  */
 export async function loadOutputs(
   filePath: string,
   options?: { maxSizeBytes?: number },
 ): Promise<OutputMap> {
   const resolvedPath = resolveSafePath(filePath);
+
+  if (resolvedPath.endsWith('.jsonl')) {
+    const items = await readJsonlSafely<unknown>(resolvedPath, {
+      maxSizeBytes: options?.maxSizeBytes,
+    });
+    return normalizeOutputs(items);
+  }
+
   const json = await readJsonSafely(resolvedPath, { maxSizeBytes: options?.maxSizeBytes });
   return normalizeOutputs(json);
 }

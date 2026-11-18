@@ -1,5 +1,6 @@
 import { deepEqual } from '../utils/equality.js';
 import { safePreview } from '../utils/sanitizer.js';
+import { formatDiff } from '../utils/diff.js';
 import type { ExactMatchAssertionConfig } from '../datasets/types.js';
 import type { Evaluator, EvaluationContext, AssertionResult } from './types.js';
 
@@ -49,6 +50,11 @@ export class ExactMatchEvaluator implements Evaluator<ExactMatchAssertionConfig>
           : `Output does not match expected string: received ${safePreview(actual)} (expected ${safePreview(expected)})`,
         expected,
         actual,
+        diagnostics: passed
+          ? undefined
+          : {
+              diff: formatDiff(expected, actual, { colors: false }) ?? undefined,
+            },
         durationMs: performance.now() - start,
       };
     }
@@ -63,6 +69,11 @@ export class ExactMatchEvaluator implements Evaluator<ExactMatchAssertionConfig>
         : `Output does not match expected value: received ${safePreview(actual)} (expected ${safePreview(expected)})`,
       expected,
       actual,
+      diagnostics: passed
+        ? undefined
+        : {
+            diff: formatDiff(expected, actual, { colors: false }) ?? undefined,
+          },
       durationMs: performance.now() - start,
     };
   }

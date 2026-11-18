@@ -6,6 +6,8 @@ import type { CaseResult, EvaluationReport, ReportStatus, AssertionTotals } from
 export interface RunEvaluationOptions {
   registry?: EvaluatorRegistry;
   caseFilter?: string[];
+  tags?: string[];
+  grep?: string | RegExp;
 }
 
 /**
@@ -18,9 +20,25 @@ export async function runEvaluation(
 ): Promise<EvaluationReport> {
   const runnerStart = performance.now();
   const registry = options?.registry ?? defaultEvaluatorRegistry;
-  const filterSet = options?.caseFilter ? new Set(options.caseFilter) : null;
 
-  const targetCases = filterSet ? dataset.cases.filter((c) => filterSet.has(c.id)) : dataset.cases;
+  let targetCases = dataset.cases;
+
+  if (options?.caseFilter && options.caseFilter.length > 0) {
+    const filterSet = new Set(options.caseFilter);
+    targetCases = targetCases.filter((c) => filterSet.has(c.id));
+  }
+
+  if (options?.tags && options.tags.length > 0) {
+    const tagSet = new Set(options.tags);
+    targetCases = targetCases.filter((c) => c.tags?.some((t) => tagSet.has(t)));
+  }
+
+  if (options?.grep) {
+    const regex = options.grep instanceof RegExp ? options.grep : new RegExp(options.grep, 'i');
+    targetCases = targetCases.filter(
+      (c) => regex.test(c.id) || (c.description ? regex.test(c.description) : false),
+    );
+  }
 
   const caseResults: CaseResult[] = [];
   const assertionTotals: AssertionTotals = {

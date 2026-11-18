@@ -2,6 +2,7 @@ import { Ajv, type ErrorObject, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import type { JsonSchemaAssertionConfig } from '../datasets/types.js';
 import type { Evaluator, EvaluationContext, AssertionResult } from './types.js';
+import { stripCodeFences } from '../utils/markdown.js';
 
 export class JsonSchemaEvaluator implements Evaluator<JsonSchemaAssertionConfig> {
   public readonly type = 'json_schema';
@@ -32,6 +33,10 @@ export class JsonSchemaEvaluator implements Evaluator<JsonSchemaAssertionConfig>
     }
 
     let parsedOutput = context.actualOutput;
+
+    if (config?.stripCodeFences && typeof parsedOutput === 'string') {
+      parsedOutput = stripCodeFences(parsedOutput);
+    }
 
     if (typeof parsedOutput === 'string') {
       try {

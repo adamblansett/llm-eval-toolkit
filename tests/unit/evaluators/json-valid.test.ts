@@ -59,4 +59,29 @@ describe('JsonValidEvaluator', () => {
     expect(result.status).toBe('FAILED');
     expect(result.message).toContain('Expected string output containing JSON');
   });
+
+  it('parses JSON wrapped in markdown code fences when stripCodeFences is true', () => {
+    const fenced = '```json\n{"merchant": "Store", "amount": 10.5}\n```';
+    const result = evaluator.evaluate({
+      caseId: 'test-6',
+      input: 'prompt',
+      actualOutput: fenced,
+      config: { type: 'json', stripCodeFences: true },
+    });
+
+    expect(result.status).toBe('PASSED');
+    expect(result.actual).toEqual({ merchant: 'Store', amount: 10.5 });
+  });
+
+  it('fails on fenced JSON when stripCodeFences is false or omitted', () => {
+    const fenced = '```json\n{"merchant": "Store"}\n```';
+    const result = evaluator.evaluate({
+      caseId: 'test-7',
+      input: 'prompt',
+      actualOutput: fenced,
+      config: { type: 'json', stripCodeFences: false },
+    });
+
+    expect(result.status).toBe('FAILED');
+  });
 });

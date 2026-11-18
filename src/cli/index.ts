@@ -3,6 +3,7 @@ import { Command, CommanderError } from 'commander';
 import pc from 'picocolors';
 import { createRunCommand } from './commands/run.js';
 import { createBaselineCommand } from './commands/baseline.js';
+import { createDatasetCommand } from './commands/dataset.js';
 import { DatasetValidationError } from '../datasets/validator.js';
 import { OutputFixtureError } from '../datasets/loader.js';
 import { BaselineFormatError } from '../regression/storage.js';
@@ -22,6 +23,7 @@ export function createProgram(): Command {
 
   program.addCommand(createRunCommand());
   program.addCommand(createBaselineCommand());
+  program.addCommand(createDatasetCommand());
 
   return program;
 }

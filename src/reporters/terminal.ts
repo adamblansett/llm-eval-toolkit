@@ -148,6 +148,17 @@ export class TerminalReporter implements Reporter {
     for (const assertion of fc.assertions) {
       if (assertion.status === 'FAILED') {
         lines.push(`    ${pc.red('•')} [${assertion.assertionType}]: ${assertion.message}`);
+        if (assertion.diagnostics?.diff && typeof assertion.diagnostics.diff === 'string') {
+          lines.push(pc.dim('    Diff:'));
+          for (const dLine of assertion.diagnostics.diff.split('\n')) {
+            const formattedLine = dLine.startsWith('+')
+              ? pc.green(`      ${dLine}`)
+              : dLine.startsWith('-')
+                ? pc.red(`      ${dLine}`)
+                : pc.dim(`      ${dLine}`);
+            lines.push(formattedLine);
+          }
+        }
       } else if (assertion.status === 'ERROR') {
         lines.push(
           `    ${pc.yellow('•')} [${assertion.assertionType} ERROR]: ${assertion.message}`,

@@ -1,0 +1,4 @@
+{"id":"calc-01","output":"3.3333"}
+{"id":"regex-01","output":"ORD-8492-US"}
+{"id":"sim-01","output":"All employees must complete annual compliance training by the end of this quarter."}
+{"id":"fence-01","output":"```json\n{\n  \"username\": \"alice\",\n  \"role\": \"admin\",\n  \"active\": true\n}\n```"}

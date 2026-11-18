@@ -108,4 +108,52 @@ describe('runEvaluation', () => {
     expect(report.skippedCases).toBe(2);
     expect(report.status).toBe('PASSED');
   });
+
+  it('filters cases by tags', async () => {
+    const taggedDataset: EvaluationDataset = {
+      version: 1,
+      name: 'tagged-dataset',
+      cases: [
+        {
+          id: 'case-smoke',
+          input: 'test',
+          tags: ['smoke', 'fast'],
+          assertions: [{ type: 'exact_match', expected: 'ok' }],
+        },
+        {
+          id: 'case-slow',
+          input: 'test',
+          tags: ['slow'],
+          assertions: [{ type: 'exact_match', expected: 'ok' }],
+        },
+      ],
+    };
+
+    const outputs = {
+      'case-smoke': 'ok',
+      'case-slow': 'ok',
+    };
+
+    const report = await runEvaluation(taggedDataset, outputs, { tags: ['smoke'] });
+    expect(report.totalCases).toBe(2);
+    expect(report.passedCases).toBe(1);
+    expect(report.skippedCases).toBe(1);
+    expect(report.cases.find((c) => c.caseId === 'case-smoke')?.status).toBe('PASSED');
+    expect(report.cases.find((c) => c.caseId === 'case-slow')).toBeUndefined();
+  });
+
+  it('filters cases by regex grep pattern on ID or description', async () => {
+    const outputs = {
+      'c-1': 'hello',
+      'c-2': 'world',
+    };
+
+    const report = await runEvaluation(dataset, outputs, { grep: 'failing' });
+    // 'c-2' has description "Case 2 failing"
+    expect(report.totalCases).toBe(3);
+    expect(report.passedCases).toBe(1);
+    expect(report.skippedCases).toBe(2);
+    expect(report.cases.find((c) => c.caseId === 'c-2')?.status).toBe('PASSED');
+    expect(report.cases.find((c) => c.caseId === 'c-1')).toBeUndefined();
+  });
 });

@@ -9,7 +9,13 @@ export type BuiltinAssertionType =
   | 'json_valid'
   | 'json_schema'
   | 'required_fields'
-  | 'field_types';
+  | 'field_types'
+  | 'numeric_range'
+  | 'numeric'
+  | 'regex_match'
+  | 'regex'
+  | 'similarity'
+  | 'levenshtein';
 
 export interface ExactMatchAssertionConfig {
   type: 'exact_match';
@@ -34,11 +40,13 @@ export interface ProhibitedContentAssertionConfig {
 export interface JsonValidAssertionConfig {
   type: 'json' | 'json_valid';
   parseStringOnly?: boolean;
+  stripCodeFences?: boolean;
 }
 
 export interface JsonSchemaAssertionConfig {
   type: 'json_schema';
   schema: Record<string, unknown>;
+  stripCodeFences?: boolean;
 }
 
 export interface RequiredFieldsAssertionConfig {
@@ -51,6 +59,34 @@ export type SupportedFieldType = 'string' | 'number' | 'boolean' | 'array' | 'ob
 export interface FieldTypesAssertionConfig {
   type: 'field_types';
   types: Record<string, SupportedFieldType>;
+}
+
+export interface NumericRangeAssertionConfig {
+  type: 'numeric_range' | 'numeric';
+  min?: number;
+  max?: number;
+  expected?: number;
+  tolerance?: number;
+  path?: string;
+}
+
+export interface RegexMatchAssertionConfig {
+  type: 'regex_match' | 'regex';
+  pattern: string;
+  flags?: string;
+  path?: string;
+  invert?: boolean;
+  message?: string;
+}
+
+export interface SimilarityAssertionConfig {
+  type: 'similarity' | 'levenshtein';
+  expected: string;
+  minThreshold: number;
+  algorithm?: 'levenshtein' | 'jaccard';
+  ignoreCase?: boolean;
+  trimWhitespace?: boolean;
+  path?: string;
 }
 
 export interface CustomAssertionConfig {
@@ -66,11 +102,15 @@ export type AssertionConfig =
   | JsonSchemaAssertionConfig
   | RequiredFieldsAssertionConfig
   | FieldTypesAssertionConfig
+  | NumericRangeAssertionConfig
+  | RegexMatchAssertionConfig
+  | SimilarityAssertionConfig
   | CustomAssertionConfig;
 
 export interface EvaluationCase {
   id: string;
   description?: string;
+  tags?: string[];
   input: unknown;
   expected?: unknown;
   assertions: AssertionConfig[];

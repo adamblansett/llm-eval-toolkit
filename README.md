@@ -26,8 +26,18 @@ LLM Eval Toolkit validates AI outputs against explicit contracts, detects regres
   - [5. json\_schema](#5-json_schema)
   - [6. required\_fields](#6-required_fields)
   - [7. field\_types](#7-field_types)
-  - [8. Custom Evaluator Interface](#8-custom-evaluator-interface)
+  - [8. numeric\_range / numeric](#8-numeric_range--numeric)
+  - [9. regex\_match / regex](#9-regex_match--regex)
+  - [10. similarity / levenshtein](#10-similarity--levenshtein)
+  - [11. Custom Evaluator Interface](#11-custom-evaluator-interface)
 - [CLI Reference](#cli-reference)
+  - [llm-eval run](#llm-eval-run)
+  - [llm-eval dataset validate](#llm-eval-dataset-validate)
+  - [llm-eval baseline create](#llm-eval-baseline-create)
+  - [llm-eval baseline compare](#llm-eval-baseline-compare)
+  - [llm-eval baseline inspect](#llm-eval-baseline-inspect)
+- [Configuration Files (llm-eval.config.ts)](#configuration-files)
+- [Reporters (Terminal, JSON, Markdown, JUnit XML, GitHub Actions)](#reporters)
 - [Exit Code Contract](#exit-code-contract)
 - [Regression Detection & Baselines](#regression-detection--baselines)
 - [Programmatic API](#programmatic-api)
@@ -59,12 +69,14 @@ Traditional unit tests expect predictable, deterministic behavior. When applicat
 ## Core Features
 
 - **Deterministic Evaluation Engine**: Executes offline without network calls, external API dependencies, or credentials.
-- **Versioned Evaluation Datasets**: Strict JSON dataset specifications validated with Zod, featuring actionable errors with exact file and case locations.
-- **Rich Built-in Contract Evaluators**: Exact match, required phrases, prohibited phrases, JSON syntax, JSON Schema (via Ajv), required keys, and field types.
-- **Regression Detection**: Versioned evaluation baselines track passing and failing cases over time, detecting newly failing cases and policy violations.
-- **Dual Reporters**: Colorized terminal output for local development and structured JSON output for downstream tooling.
+- **Dual Data Formats**: Supports standard JSON (`.json`) and streaming JSON Lines (`.jsonl`) for datasets and output fixtures.
+- **Rich Built-in Contract Evaluators**: Exact match (with unified colored line diffs), required phrases, prohibited phrases, JSON syntax, JSON Schema (via Ajv), required keys, field types, numeric range/tolerance, regular expressions, and deterministic similarity (Levenshtein & token Jaccard).
+- **Markdown Code Fence Stripping**: Automatically extracts structured JSON payloads from markdown `json ... ` code blocks before validation.
+- **Regression Detection & Snapshot Updating**: Versioned evaluation baselines track passing and failing cases over time, detecting newly failing cases and policy violations, with `-u` / `--update-baseline` for in-place snapshot updates.
+- **Multi-Format Reporters**: Colorized terminal output with diffs, structured JSON, GitHub Flavored Markdown, JUnit XML for CI test tracking, and GitHub Actions workflow commands (`::error`) with step summaries.
+- **Developer Experience**: Interactive `--watch` mode, case tagging (`--tag`) and regex filtering (`--grep`), standalone `dataset validate` subcommand, and type-safe configuration files (`defineConfig`).
 - **Stable Exit Codes**: Explicit process exit codes (0–4) designed for CI automation.
-- **Custom Evaluator Extensibility**: Strongly typed API for registering custom evaluators.
+- **Custom Evaluator Extensibility**: Strongly typed API for registering and dynamically loading custom evaluators (`-e <paths...>`).
 - **Security-First Architecture**: Path traversal prevention, safe atomic file writes, payload sanitization to protect sensitive data, and input size boundaries.
 
 ---
@@ -237,6 +249,22 @@ The runner accepts model outputs mapped to case IDs. Four equivalent JSON format
 ]
 ```
 
+### Format D: JSON Lines (`.jsonl`)
+
+Ideal for large datasets and streaming pipelines:
+
+```jsonl
+{"id": "case-001", "output": "{\"status\":\"ok\"}"}
+{"id": "case-002", "output": {"count": 42}}
+```
+
+Datasets can also be authored in `.jsonl` format, optionally starting with a `_meta` record:
+
+```jsonl
+{"_meta": true, "version": 1, "name": "streaming-eval"}
+{"id": "c-01", "input": "prompt 1", "assertions": [{"type": "exact_match", "expected": "ok"}]}
+```
+
 ### Missing Outputs Handling
 
 If a case defined in the dataset does not have a corresponding entry in the output fixture:
@@ -309,12 +337,14 @@ Verifies that the output is valid, parseable JSON.
 ```json
 {
   "type": "json",
-  "parseStringOnly": false
+  "parseStringOnly": false,
+  "stripCodeFences": true
 }
 ```
 
 - By default, accepts raw JSON strings or pre-parsed JSON objects/arrays.
 - If `parseStringOnly: true`, requires the output to be a string and parses it.
+- If `stripCodeFences: true`, automatically extracts and trims JSON from markdown code fences (e.g. `json ... `).
 - Provides actionable syntax error messages (line and character position) upon failure.
 
 ---
@@ -326,6 +356,7 @@ Validates output against a supplied JSON Schema using [Ajv](https://ajv.js.org).
 ```json
 {
   "type": "json_schema",
+  "stripCodeFences": true,
   "schema": {
     "type": "object",
     "required": ["merchant", "amount", "currency"],
@@ -340,6 +371,7 @@ Validates output against a supplied JSON Schema using [Ajv](https://ajv.js.org).
 ```
 
 - Automatically parses JSON strings if the output has not already been deserialized.
+- If `stripCodeFences: true`, automatically strips enclosing markdown code fences before validation.
 - Reports validation error paths (`instancePath`), keyword violations, and schema constraints.
 - Supports standard JSON Schema formats (e.g., `date-time`, `email`, `uri`).
 
@@ -390,7 +422,75 @@ Supported types:
 
 ---
 
-### 8. Custom Evaluator Interface
+### 8. `numeric_range` / `numeric`
+
+Validates that numeric output (or a numeric field at a nested path) falls within specified boundaries or matches an expected target with tolerance.
+
+```json
+{
+  "type": "numeric_range",
+  "min": 0,
+  "max": 100,
+  "expected": 42.5,
+  "tolerance": 0.5,
+  "path": "metrics.score"
+}
+```
+
+- Supports `min` and/or `max` boundaries.
+- Supports `expected` target with optional `tolerance` (`|actual - expected| <= tolerance`).
+- Supports nested property targeting via `path`.
+- Automatically parses string numbers (e.g. `"42.5"`).
+
+---
+
+### 9. `regex_match` / `regex`
+
+Validates output against a regular expression pattern.
+
+```json
+{
+  "type": "regex_match",
+  "pattern": "^ORD-[0-9]{4}-[A-Z]{2}$",
+  "flags": "i",
+  "invert": false,
+  "message": "Must match valid order confirmation code format",
+  "path": "order.reference"
+}
+```
+
+- `pattern`: Standard regular expression string.
+- `flags`: Regex flags such as `"i"` (case-insensitive) or `"m"` (multiline).
+- `invert`: When `true`, asserts that output does **not** match the pattern.
+- `path`: Target a nested property path.
+- `message`: Custom failure message for clearer reports.
+
+---
+
+### 10. `similarity` / `levenshtein`
+
+Computes deterministic, offline similarity between the output and an expected string using Levenshtein distance or token Jaccard similarity.
+
+```json
+{
+  "type": "similarity",
+  "expected": "The quick brown fox jumps over the lazy dog.",
+  "minThreshold": 0.85,
+  "algorithm": "jaccard",
+  "ignoreCase": true,
+  "trimWhitespace": true,
+  "path": "summary"
+}
+```
+
+- `algorithm`: `'levenshtein'` (character edit ratio, default) or `'jaccard'` (word token overlap).
+- `minThreshold`: Minimum required similarity score between `0.0` and `1.0`.
+- `ignoreCase` & `trimWhitespace`: Normalize casing and leading/trailing whitespace.
+- 100% deterministic and offline—requires zero embedding models, zero API keys, and zero network calls.
+
+---
+
+### 11. Custom Evaluator Interface
 
 Implement the `Evaluator<TConfig>` interface to define domain-specific validation rules:
 
@@ -431,19 +531,35 @@ export class WordCountEvaluator implements Evaluator<WordCountConfig> {
 Run an evaluation dataset against an outputs fixture file:
 
 ```bash
-llm-eval run <dataset.json> -o <outputs.json> [options]
+llm-eval run <dataset.json|dataset.jsonl> -o <outputs.json|outputs.jsonl> [options]
 ```
 
 **Options:**
 
-- `-o, --outputs <path>`: **(Required)** Path to outputs JSON fixture file.
-- `-r, --reporter <terminal|json>`: Reporter format (default: `terminal`).
-- `--output <path>`: Write report to file instead of stdout.
+- `-o, --outputs <path>`: **(Required)** Path to outputs JSON or JSONL fixture file.
+- `-r, --reporter <type>`: Reporter format: `terminal` (default), `json`, `markdown`, `junit`, or `github`.
+- `-u, --update-baseline [path]`: Update baseline in-place with current results (or specify destination path).
+- `-t, --tag <tags...>`: Filter evaluation cases by one or more tags.
+- `-g, --grep <pattern>`: Filter evaluation cases by regex pattern matching case ID or description.
+- `-e, --evaluator <paths...>`: Path(s) to custom evaluator module files to load.
+- `-c, --config <path>`: Path to configuration file (defaults to `llm-eval.config.{ts,js,mjs,json}`).
+- `--watch`: Watch dataset and outputs files for changes and re-run automatically.
+- `--output <path>`: Write report output to file instead of stdout.
 - `--save-baseline <path>`: Save evaluation results as a baseline JSON file.
 - `--compare-baseline <path>`: Compare results against an existing baseline file.
 - `--regression-policy <policy>`: Regression policy: `fail-on-regression` (default), `fail-on-any-failure`, or `strict`.
 - `--max-file-size <bytes>`: Maximum allowed input file size in bytes (default: 10 MB).
 - `--debug`: Print stack traces for unexpected errors.
+
+### `llm-eval dataset validate`
+
+Validate a dataset file for correctness, structure, and assertion configurations without executing an evaluation:
+
+```bash
+llm-eval dataset validate <dataset.json|dataset.jsonl>
+```
+
+Prints an overview of dataset metadata, case counts, tags, and assertion breakdown.
 
 ### `llm-eval baseline create`
 
@@ -468,6 +584,58 @@ Inspect and validate a saved baseline:
 ```bash
 llm-eval baseline inspect <baseline.json>
 ```
+
+---
+
+## Configuration Files
+
+You can define project-level defaults in a configuration file (`llm-eval.config.ts`, `llm-eval.config.js`, `llm-eval.config.mjs`, or `llm-eval.config.json`).
+
+Use `defineConfig` for TypeScript type-checking and autocomplete:
+
+```typescript
+// llm-eval.config.ts
+import { defineConfig } from 'llm-eval-toolkit';
+
+export default defineConfig({
+  defaultReporter: 'github',
+  defaultBaselinePolicy: 'strict',
+  output: './test-results/eval-report.md',
+  evaluators: [
+    // Project-wide custom evaluators
+  ],
+});
+```
+
+The CLI automatically detects configuration files in the working directory, or you can specify one explicitly via `--config <path>`.
+
+---
+
+## Reporters
+
+LLM Eval Toolkit provides five specialized reporters designed for different contexts:
+
+1. **`terminal`** (default):
+   - Colorized human-readable summaries.
+   - Line-by-line unified diffs with green `+` and red `-` lines on exact-match or structural mismatches.
+   - Ideal for local development and debugging.
+
+2. **`json`**:
+   - Structured JSON output containing machine-readable metrics, per-case results, and duration totals.
+   - Ideal for scripting and downstream aggregation.
+
+3. **`markdown`**:
+   - Clean GitHub Flavored Markdown summary tables, pass rates, and collapsible `<details>` blocks for failed cases.
+   - Ideal for pull request comments and release notes.
+
+4. **`junit`**:
+   - Standard JUnit XML test results with proper entity escaping.
+   - Natively supported by Jenkins, GitLab CI, CircleCI, and GitHub Actions test summary viewers.
+
+5. **`github`**:
+   - Designed specifically for GitHub Actions runners.
+   - Emits workflow command annotations (`::error title=...::message`) pinpointing exact failure messages to individual steps.
+   - Automatically writes a rich Markdown summary table to `$GITHUB_STEP_SUMMARY`.
 
 ---
 
@@ -592,7 +760,7 @@ jobs:
         run: |
           npx llm-eval run ./examples/receipt-extraction/dataset.json \
             --outputs ./examples/receipt-extraction/outputs.json \
-            --reporter terminal
+            --reporter github
 ```
 
 ---
@@ -639,22 +807,27 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 ## ⚖️ Legal Disclaimer & Limitation of Liability
 
 ### 1. "AS IS" and Express Warranty Disclaimer
+
 This software, documentation, evaluation heuristics, benchmark scorers, and regression algorithms are provided on an **"AS IS"** and **"AS AVAILABLE"** basis, **WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND**, either express, implied, statutory, or otherwise. To the maximum extent permitted by applicable law, the author, copyright holders, and contributors expressly disclaim all warranties, including but not limited to implied warranties of merchantability, fitness for a particular purpose, title, quiet enjoyment, accuracy, and non-infringement.
 
 ### 2. Generative AI & Model Non-Determinism Disclaimer
+
 - **Inherent Non-Determinism:** Large language models (LLMs) and generative artificial intelligence systems are inherently non-deterministic, probabilistic, and prone to hallucinations, inaccuracies, biases, and unexpected outputs.
 - **Evaluation Heuristics vs. Ground Truth:** The evaluation metrics provided by this toolkit (including exact match, semantic similarity, toxicity, JSON schema validation, latency, and cost calculations) are heuristic and probabilistic assessments. A high benchmark score or passing evaluation does **not** guarantee that an AI model or prompt will behave reliably, safely, accurately, or appropriately in live production or under adversarial conditions.
 - **High-Risk & Safety-Critical Exclusions:** This software is **NOT** certified or intended for use in evaluating AI models deployed in safety-critical, medical, healthcare, legal, financial advisory, aviation, life-support, or automated weapons systems, or any environment where AI hallucinations or inaccuracies could result in personal injury, death, or severe financial or environmental harm.
 
 ### 3. Third-Party Provider Usage & Financial Liability
+
 - **API Charges & Rate Limits:** Any live evaluations executed against third-party AI APIs (such as OpenAI, Anthropic, Google Gemini, Mistral, Cohere, or local runtimes) use the user's own credentials, network bandwidth, and compute quotas.
 - Users are solely responsible for monitoring their token consumption, API expenditures, rate limits, and compliance with the terms of service of any third-party AI provider.
 - The author and contributors shall not be liable for any API billing charges, account suspensions, rate limit throttling, or provider terms violations incurred by running evaluations.
 
 ### 4. Limitation of Liability
+
 To the maximum extent permitted by applicable law, **IN NO EVENT SHALL THE AUTHOR, COPYRIGHT HOLDERS, OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, PUNITIVE, OR CONSEQUENTIAL DAMAGES** (including, but not limited to, loss of use, data, revenue, profits, business, or goodwill; AI hallucinations; defamation; copyright infringement by generated content; system downtime; or procurement of substitute goods or services), however caused and on any theory of liability, whether in contract, strict liability, tort (including negligence or otherwise), or statute, arising in any way out of the use, reproduction, modification, distribution, or reliance upon this software, even if advised of the possibility of such damages.
 
 ### 5. Third-Party Trademarks & Non-Affiliation
+
 All product names, logos, brands, and registered trademarks mentioned within this project (including OpenAI, Anthropic, Google Gemini, Mistral, Meta Llama, Hugging Face, Node.js, and Vitest) are the property of their respective owners. Mention of these entities does not imply endorsement, sponsorship, or affiliation with the author.
 
 ---

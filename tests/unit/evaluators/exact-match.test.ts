@@ -94,6 +94,8 @@ describe('ExactMatchEvaluator', () => {
     });
 
     expect(result.status).toBe('FAILED');
+    expect(result.diagnostics?.diff).toBeDefined();
+    expect(typeof result.diagnostics?.diff).toBe('string');
   });
 
   it('returns ERROR when no expected value is defined in config or case', () => {

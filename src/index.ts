@@ -6,6 +6,12 @@ export {
   SUPPORTED_BASELINE_VERSION,
   SUPPORTED_OUTPUT_VERSION,
 } from './config/constants.js';
+export {
+  defineConfig,
+  loadConfigFile,
+  loadEvaluatorsFromPaths,
+  type LlmEvalConfig,
+} from './config/loader.js';
 
 // Datasets
 export {
@@ -34,6 +40,9 @@ export type {
   JsonSchemaAssertionConfig,
   RequiredFieldsAssertionConfig,
   FieldTypesAssertionConfig,
+  NumericRangeAssertionConfig,
+  RegexMatchAssertionConfig,
+  SimilarityAssertionConfig,
   SupportedFieldType,
   BuiltinAssertionType,
 } from './datasets/types.js';
@@ -51,6 +60,9 @@ export {
   matchesExpectedType,
   getActualType,
 } from './evaluators/field-types.js';
+export { NumericRangeEvaluator } from './evaluators/numeric-range.js';
+export { RegexMatchEvaluator } from './evaluators/regex-match.js';
+export { SimilarityEvaluator } from './evaluators/similarity.js';
 export type {
   Evaluator,
   EvaluationContext,
@@ -91,15 +103,33 @@ export type {
 // Reporters
 export { TerminalReporter } from './reporters/terminal.js';
 export { JsonReporter, type JsonReportPayload } from './reporters/json.js';
-export type { Reporter, TerminalReporterOptions, JsonReporterOptions } from './reporters/types.js';
+export { MarkdownReporter } from './reporters/markdown.js';
+export { JunitReporter } from './reporters/junit.js';
+export { GitHubReporter } from './reporters/github.js';
+export type {
+  Reporter,
+  TerminalReporterOptions,
+  JsonReporterOptions,
+  MarkdownReporterOptions,
+  JunitReporterOptions,
+  GitHubReporterOptions,
+} from './reporters/types.js';
 
 // Utilities
 export { safePreview } from './utils/sanitizer.js';
 export { deepEqual } from './utils/equality.js';
 export { getValueByPath, tokenizePath } from './utils/property-path.js';
+export { stripCodeFences } from './utils/markdown.js';
+export { formatDiff, type DiffOptions } from './utils/diff.js';
+export {
+  levenshteinDistance,
+  levenshteinSimilarity,
+  jaccardSimilarity,
+} from './utils/similarity.js';
 export {
   readFileSafely,
   readJsonSafely,
+  readJsonlSafely,
   writeFileAtomic,
   FileReadError,
   FileNotFoundError,

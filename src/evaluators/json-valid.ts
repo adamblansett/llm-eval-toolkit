@@ -1,5 +1,6 @@
 import type { JsonValidAssertionConfig } from '../datasets/types.js';
 import type { Evaluator, EvaluationContext, AssertionResult } from './types.js';
+import { stripCodeFences } from '../utils/markdown.js';
 
 export class JsonValidEvaluator implements Evaluator<JsonValidAssertionConfig> {
   public readonly type: string;
@@ -11,7 +12,11 @@ export class JsonValidEvaluator implements Evaluator<JsonValidAssertionConfig> {
   public evaluate(context: EvaluationContext<JsonValidAssertionConfig>): AssertionResult {
     const start = performance.now();
     const config = context.config;
-    const actual = context.actualOutput;
+    let actual = context.actualOutput;
+
+    if (config?.stripCodeFences && typeof actual === 'string') {
+      actual = stripCodeFences(actual);
+    }
 
     if (config?.parseStringOnly) {
       if (typeof actual !== 'string') {

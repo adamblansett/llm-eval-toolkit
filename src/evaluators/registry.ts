@@ -5,6 +5,9 @@ import { JsonValidEvaluator } from './json-valid.js';
 import { JsonSchemaEvaluator } from './json-schema.js';
 import { RequiredFieldsEvaluator } from './required-fields.js';
 import { FieldTypesEvaluator } from './field-types.js';
+import { NumericRangeEvaluator } from './numeric-range.js';
+import { RegexMatchEvaluator } from './regex-match.js';
+import { SimilarityEvaluator } from './similarity.js';
 import type { Evaluator } from './types.js';
 
 export class EvaluatorRegistry {
@@ -23,6 +26,12 @@ export class EvaluatorRegistry {
     this.register(new JsonSchemaEvaluator());
     this.register(new RequiredFieldsEvaluator());
     this.register(new FieldTypesEvaluator());
+    this.register(new NumericRangeEvaluator('numeric_range'));
+    this.register(new NumericRangeEvaluator('numeric'));
+    this.register(new RegexMatchEvaluator('regex_match'));
+    this.register(new RegexMatchEvaluator('regex'));
+    this.register(new SimilarityEvaluator('similarity'));
+    this.register(new SimilarityEvaluator('levenshtein'));
   }
 
   public register<TConfig>(evaluator: Evaluator<TConfig>): void {
