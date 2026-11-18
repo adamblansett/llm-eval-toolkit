@@ -38,4 +38,13 @@ describe('formatDiff', () => {
     expect(diff).toContain('-   "count": 1');
     expect(diff).toContain('+   "count": 2');
   });
+
+  it('safely truncates oversized diffs to protect memory and terminal output', () => {
+    const linesA = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
+    const linesB = Array.from({ length: 20 }, (_, i) => `modified line ${i}`).join('\n');
+
+    const diff = formatDiff(linesA, linesB, { maxLines: 5, colors: false });
+    expect(diff).not.toBeNull();
+    expect(diff).toContain('[diff truncated: 15 remaining lines omitted for display safety]');
+  });
 });

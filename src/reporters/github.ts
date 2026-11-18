@@ -5,6 +5,25 @@ import type { Reporter, GitHubReporterOptions } from './types.js';
 import { MarkdownReporter } from './markdown.js';
 import { TerminalReporter } from './terminal.js';
 
+/**
+ * Escapes characters in GitHub Actions workflow command properties according to official specifications.
+ */
+export function escapeWorkflowProperty(val: string): string {
+  return val
+    .replace(/%/g, '%25')
+    .replace(/\r/g, '%0D')
+    .replace(/\n/g, '%0A')
+    .replace(/:/g, '%3A')
+    .replace(/,/g, '%2C');
+}
+
+/**
+ * Escapes characters in GitHub Actions workflow command message data.
+ */
+export function escapeWorkflowData(val: string): string {
+  return val.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+}
+
 export class GitHubReporter implements Reporter {
   private options: GitHubReporterOptions;
   private markdownReporter: MarkdownReporter;
@@ -21,24 +40,29 @@ export class GitHubReporter implements Reporter {
   public format(report: EvaluationReport, regression?: RegressionComparisonResult): string {
     const lines: string[] = [];
 
-    // 1. Emit GitHub workflow commands (annotations)
+    // 1. Emit GitHub workflow commands (annotations) with proper escaping
     for (const c of report.cases) {
       if (c.missingOutput) {
-        lines.push(
-          `::error title=Missing Output (${c.caseId})::Case "${c.caseId}" has no matching output in outputs fixture`,
+        const title = escapeWorkflowProperty(`Missing Output (${c.caseId})`);
+        const msg = escapeWorkflowData(
+          `Case "${c.caseId}" has no matching output in outputs fixture`,
         );
+        lines.push(`::error title=${title}::${msg}`);
       } else if (c.status === 'FAILED') {
-        const msg = c.failureMessages.join(' | ').replace(/\r?\n/g, ' ');
-        lines.push(`::error title=Evaluation Failed (${c.caseId})::${msg}`);
+        const title = escapeWorkflowProperty(`Evaluation Failed (${c.caseId})`);
+        const msg = escapeWorkflowData(c.failureMessages.join(' | '));
+        lines.push(`::error title=${title}::${msg}`);
       } else if (c.status === 'ERROR') {
-        const msg = c.failureMessages.join(' | ').replace(/\r?\n/g, ' ');
-        lines.push(`::error title=Evaluation Error (${c.caseId})::${msg}`);
+        const title = escapeWorkflowProperty(`Evaluation Error (${c.caseId})`);
+        const msg = escapeWorkflowData(c.failureMessages.join(' | '));
+        lines.push(`::error title=${title}::${msg}`);
       }
     }
 
     if (regression?.isRegression) {
-      const regMsg = regression.policyViolations.join(' | ').replace(/\r?\n/g, ' ');
-      lines.push(`::error title=Regression Detected (${regression.policy})::${regMsg}`);
+      const title = escapeWorkflowProperty(`Regression Detected (${regression.policy})`);
+      const regMsg = escapeWorkflowData(regression.policyViolations.join(' | '));
+      lines.push(`::error title=${title}::${regMsg}`);
     }
 
     // 2. Write Markdown to GITHUB_STEP_SUMMARY if available

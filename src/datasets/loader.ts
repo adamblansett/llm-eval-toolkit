@@ -86,6 +86,11 @@ export function normalizeOutputs(raw: unknown): OutputMap {
       const id = (itemObj['id'] ?? itemObj['caseId']) as string | undefined;
 
       if (typeof id === 'string' && id.trim().length > 0) {
+        if (id === '__proto__' || id === 'prototype' || id === 'constructor') {
+          throw new OutputFixtureError(
+            `Outputs fixture contains invalid or reserved case ID "${id}" at index ${i}`,
+          );
+        }
         if (!('output' in itemObj)) {
           throw new OutputFixtureError(
             `Outputs array item at index ${i} is missing "output" field`,
@@ -137,10 +142,23 @@ export function normalizeOutputs(raw: unknown): OutputMap {
         'The "outputs" field in output fixture must be an object mapping case IDs to outputs',
       );
     }
-    return rawObj['outputs'] as OutputMap;
+    const outputsObj = rawObj['outputs'] as Record<string, unknown>;
+    for (const key of Object.keys(outputsObj)) {
+      if (key === '__proto__' || key === 'prototype' || key === 'constructor') {
+        throw new OutputFixtureError(
+          `Outputs fixture contains invalid or reserved case ID "${key}"`,
+        );
+      }
+    }
+    return outputsObj as OutputMap;
   }
 
   // Format 4: Direct key-value map { "case-001": output, ... }
+  for (const key of Object.keys(rawObj)) {
+    if (key === '__proto__' || key === 'prototype' || key === 'constructor') {
+      throw new OutputFixtureError(`Outputs fixture contains invalid or reserved case ID "${key}"`);
+    }
+  }
   return rawObj as OutputMap;
 }
 

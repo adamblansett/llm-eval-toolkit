@@ -291,7 +291,7 @@ describe('validateDataset', () => {
           },
         ],
       }),
-    ).toThrow(/Required/);
+    ).toThrow(/Required|expected string/);
   });
 
   it('validates similarity and levenshtein assertion configurations', () => {

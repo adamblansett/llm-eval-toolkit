@@ -92,6 +92,17 @@ describe('Security & Privacy Tests', () => {
     expect(() => normalizeOutputs(NaN)).toThrow(OutputFixtureError);
   });
 
+  it('rejects prototype pollution attempts in output fixture keys', () => {
+    const poisonedDirect = JSON.parse('{"__proto__": "polluted", "c1": "ok"}');
+    expect(() => normalizeOutputs(poisonedDirect)).toThrow(/invalid or reserved case ID/);
+
+    const poisonedWrapped = JSON.parse('{"version": 1, "outputs": {"__proto__": "polluted"}}');
+    expect(() => normalizeOutputs(poisonedWrapped)).toThrow(/invalid or reserved case ID/);
+
+    const poisonedArray = [{ id: '__proto__', output: 'polluted' }];
+    expect(() => normalizeOutputs(poisonedArray)).toThrow(/invalid or reserved case ID/);
+  });
+
   it('atomic write cleans up temporary files on write failure', async () => {
     // Attempting to write into a path that cannot be created as file
     const badPath = path.join(tempDir, 'sub', 'file.txt');

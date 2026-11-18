@@ -1,10 +1,19 @@
+export const MAX_LEVENSHTEIN_STRING_LENGTH = 10_000;
+
 /**
  * Computes the Levenshtein edit distance between two strings.
+ * Includes algorithmic complexity safety bound to prevent CPU exhaustion DoS.
  */
 export function levenshteinDistance(a: string, b: string): number {
   if (a === b) return 0;
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
+
+  if (a.length > MAX_LEVENSHTEIN_STRING_LENGTH || b.length > MAX_LEVENSHTEIN_STRING_LENGTH) {
+    throw new Error(
+      `Input length exceeds safe threshold for Levenshtein distance (${MAX_LEVENSHTEIN_STRING_LENGTH} chars). Use token Jaccard similarity for large texts.`,
+    );
+  }
 
   const m = a.length;
   const n = b.length;

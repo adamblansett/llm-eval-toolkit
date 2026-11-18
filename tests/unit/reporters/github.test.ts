@@ -99,6 +99,35 @@ describe('GitHubReporter', () => {
     );
   });
 
+  it('escapes special characters to prevent GitHub Actions workflow command injection', () => {
+    const maliciousReport: EvaluationReport = {
+      ...sampleReport,
+      cases: [
+        {
+          caseId: 'inject,foo:bar',
+          status: 'FAILED',
+          assertions: [],
+          passedAssertions: 0,
+          failedAssertions: 1,
+          errorAssertions: 0,
+          durationMs: 5,
+          failureMessages: ['Multiline failure:\n::set-output name=admin::true%'],
+          missingOutput: false,
+        },
+      ],
+    };
+
+    const reporter = new GitHubReporter({ writeStepSummary: false });
+    const output = reporter.format(maliciousReport);
+
+    // Verified property escaping: commas and colons must be escaped in title
+    expect(output).toContain('title=Evaluation Failed (inject%2Cfoo%3Abar)');
+    // Verified message escaping: newlines and percents escaped to prevent command injection
+    expect(output).toContain('Multiline failure:%0A::set-output name=admin::true%25');
+    // Ensure raw unescaped command is NOT in output
+    expect(output).not.toContain('\n::set-output');
+  });
+
   it('writes markdown report to GITHUB_STEP_SUMMARY when configured', () => {
     const reporter = new GitHubReporter({ writeStepSummary: true });
     reporter.format(sampleReport);

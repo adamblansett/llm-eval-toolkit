@@ -43,6 +43,9 @@ jobs:
       - name: Run automated tests
         run: npm run test
 
+      - name: Security audit production dependencies
+        run: npm audit --omit=dev
+
       - name: Build package
         run: npm run build
 
@@ -50,4 +53,6 @@ jobs:
         run: |
           node ./dist/cli/index.js --version
           node ./dist/cli/index.js --help
+          node ./dist/cli/index.js dataset validate ./examples/receipt-extraction/dataset.json
+          node ./dist/cli/index.js dataset validate ./examples/jsonl-and-modern-evaluators/dataset.jsonl
           node ./dist/cli/index.js run ./examples/receipt-extraction/dataset.json -o ./examples/receipt-extraction/outputs.json --reporter json || [ $? -eq 1 ]

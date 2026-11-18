@@ -54,10 +54,21 @@ export class SimilarityEvaluator implements Evaluator<SimilarityAssertionConfig>
     }
 
     const algorithm = config.algorithm ?? 'levenshtein';
-    const score =
-      algorithm === 'jaccard'
-        ? jaccardSimilarity(actualStr, expectedStr)
-        : levenshteinSimilarity(actualStr, expectedStr);
+    let score: number;
+    try {
+      score =
+        algorithm === 'jaccard'
+          ? jaccardSimilarity(actualStr, expectedStr)
+          : levenshteinSimilarity(actualStr, expectedStr);
+    } catch (err: unknown) {
+      const error = err as Error;
+      return {
+        assertionType: this.type,
+        status: 'ERROR',
+        message: `Similarity evaluation error${pathDesc}: ${error.message}`,
+        durationMs: performance.now() - start,
+      };
+    }
 
     const roundedScore = Number(score.toFixed(4));
     const passed = roundedScore >= config.minThreshold;

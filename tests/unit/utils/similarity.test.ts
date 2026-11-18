@@ -22,6 +22,11 @@ describe('similarity utils', () => {
       expect(levenshteinDistance('flaw', 'lawn')).toBe(2);
       expect(levenshteinDistance('gumbo', 'gambol')).toBe(2);
     });
+
+    it('rejects oversized strings to prevent CPU exhaustion DoS', () => {
+      const hugeString = 'a'.repeat(10_001);
+      expect(() => levenshteinDistance(hugeString, 'b')).toThrow(/exceeds safe threshold/);
+    });
   });
 
   describe('levenshteinSimilarity', () => {
