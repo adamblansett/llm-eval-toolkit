@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { promisify, stripVTControlCharacters } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -68,8 +68,9 @@ describe('CLI Integration Tests', () => {
       outputsPath,
     ]);
 
-    expect(stdout).toContain('Result: PASSED');
-    expect(stdout).toContain('Passed cases:      1');
+    const plainStdout = stripVTControlCharacters(stdout);
+    expect(plainStdout).toContain('Result: PASSED');
+    expect(plainStdout).toContain('Passed cases:      1');
   });
 
   it('runs a failing evaluation and exits with ExitCode.EVALUATION_FAILED (1)', async () => {

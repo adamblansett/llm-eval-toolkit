@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { pathToFileURL } from 'node:url';
 import { Command, CommanderError } from 'commander';
 import pc from 'picocolors';
 import { createRunCommand } from './commands/run.js';
@@ -72,8 +73,8 @@ export async function main(args: string[] = process.argv): Promise<void> {
 
 // Only invoke automatically when run as the CLI entrypoint
 if (
-  import.meta.url === `file://${process.argv[1]}` ||
-  (process.argv[1] && process.argv[1].endsWith('llm-eval'))
+  process.argv[1] &&
+  (import.meta.url === pathToFileURL(process.argv[1]).href || process.argv[1].endsWith('llm-eval'))
 ) {
   void main();
 }
